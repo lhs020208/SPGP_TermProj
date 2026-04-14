@@ -1,5 +1,7 @@
 package com.example.elementpuzzledrag
 
+import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -25,7 +27,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun startGameActivity() {
         Log.d(javaClass.simpleName, "Start Game")
-        // val intent = Intent(this, DragonFlightActivity::class.java)
-        // startActivity(intent)
+        val intent = Intent(this, ElementPuzzleDrag::class.java)
+        startActivity(intent)
     }
 }
