@@ -24,4 +24,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "Element Puzzle Drag"
 include(":app")
+include(":a2dg")
  

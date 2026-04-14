@@ -1,9 +1,9 @@
 plugins {
-    alias(libs.plugins.android.application)
+    alias(libs.plugins.android.library)
 }
 
 android {
-    namespace = "com.example.elementpuzzledrag"
+    namespace = "kr.ac.tukorea.ge.spgp2026.a2dg"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -11,13 +11,10 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.elementpuzzledrag"
         minSdk = 24
-        targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
@@ -36,12 +33,9 @@ android {
 }
 
 dependencies {
-    implementation(project(":a2dg"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
-    implementation(libs.androidx.activity)
-    implementation(libs.androidx.constraintlayout)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
