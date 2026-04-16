@@ -18,6 +18,8 @@ class Drop(
 
         const val BOARD_TOP = 850f
         const val BOTTOM_VISIBLE_CENTER_Y = 1525f
+
+        const val HOLD_SIZE = 150f
     }
 
     init {
@@ -35,5 +37,15 @@ class Drop(
         this.row = row
         this.col = col
         updatePosition()
+    }
+
+    fun setHolding(holding: Boolean) {
+        if (holding) {
+            width = HOLD_SIZE
+            height = HOLD_SIZE
+        } else {
+            width = DROP_SIZE
+            height = DROP_SIZE
+        }
     }
 }

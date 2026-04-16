@@ -3,16 +3,19 @@ package com.example.elementpuzzledrag
 import kr.ac.tukorea.ge.spgp2026.a2dg.scene.Scene
 import kr.ac.tukorea.ge.spgp2026.a2dg.scene.World
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
+import android.view.MotionEvent
 
 class MainScene(gctx: GameContext) : Scene(gctx) {
     override val world = World(arrayOf(
-        //Layer.BACKGROUND,
-        //Layer.BOARD,
-        //Layer.HUD,
         Layer.BACKGROUND,
-        Layer.HUD,
         Layer.BOARD,
+        Layer.HUD,
+        //Layer.BACKGROUND,
+        //Layer.HUD,
+        //Layer.BOARD,
     ))
+
+    private lateinit var board: Board
 
     init {
         val screenW = gctx.metrics.width      // 900
@@ -78,7 +81,11 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             ),
             Layer.BACKGROUND,
         )
-        val board = Board(gctx, world)
-        //world.add(board, Layer.BOARD)
+        board = Board(gctx, world)
+        world.add(board, Layer.BOARD)
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        return board.onTouchEvent(event)
     }
 }

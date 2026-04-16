@@ -15,9 +15,17 @@ class Board(
         const val COLS = 6
         const val ROWS = 10
         const val VISIBLE_ROWS = 5
+
+        const val BOARD_LEFT = 0f
+        const val BOARD_TOP = 850f
+        const val BOARD_RIGHT = BOARD_LEFT + COLS * Drop.CELL_SIZE
+        const val VISIBLE_BOTTOM = BOARD_TOP + VISIBLE_ROWS * Drop.CELL_SIZE
     }
 
     private val drops = Array(ROWS) { arrayOfNulls<Drop>(COLS) }
+    private var holdingDrop: Drop? = null
+    private var holdingRow = -1
+    private var holdingCol = -1
 
     init {
         fillInitialDrops()
@@ -49,9 +57,61 @@ class Board(
         return drops[row][col]
     }
 
+    private fun findVisibleCell(screenX: Float, screenY: Float): Pair<Int, Int>? {
+        val pt = gctx.metrics.fromScreen(screenX, screenY)
+
+        if (pt.x < BOARD_LEFT || pt.x >= BOARD_RIGHT) return null
+        if (pt.y < BOARD_TOP || pt.y >= VISIBLE_BOTTOM) return null
+
+        val col = ((pt.x - BOARD_LEFT) / Drop.CELL_SIZE).toInt()
+        val rowFromTop = ((pt.y - BOARD_TOP) / Drop.CELL_SIZE).toInt()
+        val row = (VISIBLE_ROWS - 1) - rowFromTop
+
+        return row to col
+    }
+
+    private fun beginHold(row: Int, col: Int) {
+        val drop = drops[row][col] ?: return
+
+        clearHold()
+
+        holdingDrop = drop
+        holdingRow = row
+        holdingCol = col
+        drop.setHolding(true)
+    }
+
+    private fun clearHold() {
+        holdingDrop?.setHolding(false)
+        holdingDrop = null
+        holdingRow = -1
+        holdingCol = -1
+    }
+
     override fun update(gctx: GameContext) {
     }
 
     override fun draw(canvas: Canvas) {
+    }
+
+    fun onTouchEvent(event: android.view.MotionEvent): Boolean {
+        when (event.actionMasked) {
+            android.view.MotionEvent.ACTION_DOWN -> {
+                val cell = findVisibleCell(event.x, event.y) ?: return false
+                beginHold(cell.first, cell.second)
+                return true
+            }
+
+            android.view.MotionEvent.ACTION_UP,
+            android.view.MotionEvent.ACTION_CANCEL -> {
+                clearHold()
+                return true
+            }
+
+            android.view.MotionEvent.ACTION_MOVE -> {
+                return holdingDrop != null
+            }
+        }
+        return false
     }
 }
