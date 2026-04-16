@@ -43,7 +43,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         world.add(
             UiSprite(
                 gctx,
-                R.mipmap.element_icon,
+                R.mipmap.i_element,
                 0f,
                 elementTop,
                 screenW,
@@ -67,7 +67,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         world.add(
             UiSprite(
                 gctx,
-                R.mipmap.puzzle_plane,
+                R.mipmap.i_puzzle_plane,
                 0f,
                 puzzleTop,
                 screenW,

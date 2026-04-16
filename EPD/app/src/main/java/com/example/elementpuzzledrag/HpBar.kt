@@ -15,8 +15,8 @@ class HpBar(
     hpRatio: Float = 1f,
 ) : IGameObject {
 
-    private val hp0Bitmap = gctx.res.getBitmap(R.mipmap.hp0)
-    private val hp1Bitmap = gctx.res.getBitmap(R.mipmap.hp1)
+    private val hp0Bitmap = gctx.res.getBitmap(R.mipmap.i_hp0)
+    private val hp1Bitmap = gctx.res.getBitmap(R.mipmap.i_hp1)
 
     var hpRatio: Float = hpRatio
         set(value) {
