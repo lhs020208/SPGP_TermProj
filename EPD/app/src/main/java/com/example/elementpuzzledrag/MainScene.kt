@@ -6,9 +6,12 @@ import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
 
 class MainScene(gctx: GameContext) : Scene(gctx) {
     override val world = World(arrayOf(
+        //Layer.BACKGROUND,
+        //Layer.BOARD,
+        //Layer.HUD,
         Layer.BACKGROUND,
-        Layer.BOARD,
         Layer.HUD,
+        Layer.BOARD,
     ))
 
     init {
@@ -73,7 +76,9 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 screenW,
                 puzzleHeight,
             ),
-            Layer.BOARD,
+            Layer.BACKGROUND,
         )
+        val board = Board(gctx, world)
+        //world.add(board, Layer.BOARD)
     }
 }

@@ -8,20 +8,27 @@ class Drop(
     var row: Int,
     var col: Int,
     var type: DropType,
-    private val cellSize: Float,
-    private val boardLeft: Float,
-    private val boardTop: Float,
 ) : Sprite(gctx, type.toResId()) {
 
+    companion object {
+        const val CELL_SIZE = 150f
+        const val DROP_SIZE = 120f
+
+        const val FIRST_CENTER_X = 75f
+
+        const val BOARD_TOP = 850f
+        const val BOTTOM_VISIBLE_CENTER_Y = 1525f
+    }
+
     init {
-        width = cellSize
-        height = cellSize
+        width = DROP_SIZE
+        height = DROP_SIZE
         updatePosition()
     }
 
     fun updatePosition() {
-        x = boardLeft + col * cellSize + cellSize / 2f
-        y = boardTop + row * cellSize + cellSize / 2f
+        x = FIRST_CENTER_X + CELL_SIZE * col
+        y = BOTTOM_VISIBLE_CENTER_Y - CELL_SIZE * row
     }
 
     fun setGridPosition(row: Int, col: Int) {
