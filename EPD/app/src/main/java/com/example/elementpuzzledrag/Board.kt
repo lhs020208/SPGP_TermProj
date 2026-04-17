@@ -82,10 +82,22 @@ class Board(
     }
 
     private fun clearHold() {
-        holdingDrop?.setHolding(false)
+        holdingDrop?.let { drop ->
+            if (holdingRow >= 0 && holdingCol >= 0) {
+                drop.setGridPosition(holdingRow, holdingCol)
+            }
+            drop.setHolding(false)
+        }
         holdingDrop = null
         holdingRow = -1
         holdingCol = -1
+    }
+
+    private fun moveHoldingDrop(screenX: Float, screenY: Float) {
+        val drop = holdingDrop ?: return
+        val pt = gctx.metrics.fromScreen(screenX, screenY)
+        drop.x = pt.x
+        drop.y = pt.y
     }
 
     override fun update(gctx: GameContext) {
@@ -99,6 +111,7 @@ class Board(
             android.view.MotionEvent.ACTION_DOWN -> {
                 val cell = findVisibleCell(event.x, event.y) ?: return false
                 beginHold(cell.first, cell.second)
+                moveHoldingDrop(event.x, event.y)
                 return true
             }
 
@@ -109,7 +122,9 @@ class Board(
             }
 
             android.view.MotionEvent.ACTION_MOVE -> {
-                return holdingDrop != null
+                if (holdingDrop == null) return false
+                moveHoldingDrop(event.x, event.y)
+                return true
             }
         }
         return false
