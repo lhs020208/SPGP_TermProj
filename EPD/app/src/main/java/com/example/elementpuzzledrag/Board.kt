@@ -22,6 +22,7 @@ class Board(
         const val VISIBLE_BOTTOM = BOARD_TOP + VISIBLE_ROWS * Drop.CELL_SIZE
         private const val ORTHO_SWAP_THRESHOLD = 75f
         private const val DIAGONAL_SWAP_THRESHOLD = 55f
+        private const val SWAP_ANIMATION_DURATION = 0.08f
     }
 
     private val drops = Array(ROWS) { arrayOfNulls<Drop>(COLS) }
@@ -197,7 +198,7 @@ class Board(
         drops[holdingRow][holdingCol] = other
         drops[targetRow][targetCol] = held
 
-        other.setGridPosition(holdingRow, holdingCol)
+        other.animateToGrid(holdingRow, holdingCol, SWAP_ANIMATION_DURATION)
 
         held.row = targetRow
         held.col = targetCol

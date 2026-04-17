@@ -14,6 +14,13 @@ class Drop(
 
     private val drawPaint = Paint()
     private var isHolding = false
+    private var isAnimating = false
+    private var animStartX = 0f
+    private var animStartY = 0f
+    private var animTargetX = 0f
+    private var animTargetY = 0f
+    private var animElapsed = 0f
+    private var animDuration = 0f
 
     companion object {
         const val CELL_SIZE = 150f
@@ -41,7 +48,33 @@ class Drop(
     fun setGridPosition(row: Int, col: Int) {
         this.row = row
         this.col = col
-        updatePosition()
+
+        val (centerX, centerY) = getGridCenter(row, col)
+        setCenter(centerX, centerY)
+
+        isAnimating = false
+    }
+
+    fun animateToGrid(row: Int, col: Int, duration: Float) {
+        this.row = row
+        this.col = col
+
+        animStartX = x
+        animStartY = y
+
+        val (targetX, targetY) = getGridCenter(row, col)
+        animTargetX = targetX
+        animTargetY = targetY
+
+        animElapsed = 0f
+        animDuration = duration
+        isAnimating = true
+    }
+
+    private fun getGridCenter(row: Int, col: Int): Pair<Float, Float> {
+        val centerX = Board.BOARD_LEFT + CELL_SIZE * (col + 0.5f)
+        val centerY = Board.VISIBLE_BOTTOM - CELL_SIZE * (row + 0.5f)
+        return centerX to centerY
     }
 
     fun setHolding(holding: Boolean) {
@@ -61,5 +94,21 @@ class Drop(
     override fun draw(canvas: Canvas) {
         syncDstRect()
         canvas.drawBitmap(bitmap, srcRect, dstRect, drawPaint)
+    }
+
+    override fun update(gctx: GameContext) {
+        if (!isAnimating) return
+
+        animElapsed += gctx.frameTime
+        val t = if (animDuration <= 0f) 1f else (animElapsed / animDuration).coerceIn(0f, 1f)
+
+        val newX = animStartX + (animTargetX - animStartX) * t
+        val newY = animStartY + (animTargetY - animStartY) * t
+        setCenter(newX, newY)
+
+        if (t >= 1f) {
+            isAnimating = false
+            setCenter(animTargetX, animTargetY)
+        }
     }
 }
