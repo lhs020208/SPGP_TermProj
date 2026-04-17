@@ -104,8 +104,14 @@ class Board(
     private fun moveHoldingDrop(screenX: Float, screenY: Float) {
         val drop = holdingDrop ?: return
         val pt = gctx.metrics.fromScreen(screenX, screenY)
-        drop.x = pt.x
-        drop.y = pt.y
+
+        val minX = 0f
+        val maxX = gctx.metrics.width
+        val minY = BOARD_TOP
+        val maxY = gctx.metrics.height
+
+        drop.x = pt.x.coerceIn(minX, maxX)
+        drop.y = pt.y.coerceIn(minY, maxY)
     }
 
     override fun update(gctx: GameContext) {
