@@ -2,6 +2,8 @@ package com.example.elementpuzzledrag
 
 import kr.ac.tukorea.ge.spgp2026.a2dg.objects.Sprite
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
+import android.graphics.Canvas
+import android.graphics.Paint
 
 class Drop(
     gctx: GameContext,
@@ -9,6 +11,9 @@ class Drop(
     var col: Int,
     var type: DropType,
 ) : Sprite(gctx, type.toResId()) {
+
+    private val drawPaint = Paint()
+    private var isHolding = false
 
     companion object {
         const val CELL_SIZE = 150f
@@ -40,12 +45,21 @@ class Drop(
     }
 
     fun setHolding(holding: Boolean) {
+        isHolding = holding
+
         if (holding) {
             width = HOLD_SIZE
             height = HOLD_SIZE
+            drawPaint.alpha = 192
         } else {
             width = DROP_SIZE
             height = DROP_SIZE
+            drawPaint.alpha = 255
         }
+    }
+
+    override fun draw(canvas: Canvas) {
+        syncDstRect()
+        canvas.drawBitmap(bitmap, srcRect, dstRect, drawPaint)
     }
 }

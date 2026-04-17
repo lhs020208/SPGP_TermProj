@@ -78,6 +78,10 @@ class Board(
         holdingDrop = drop
         holdingRow = row
         holdingCol = col
+
+        world.remove(drop, Layer.BOARD)
+        world.add(drop, Layer.HOLDING)
+
         drop.setHolding(true)
     }
 
@@ -86,6 +90,10 @@ class Board(
             if (holdingRow >= 0 && holdingCol >= 0) {
                 drop.setGridPosition(holdingRow, holdingCol)
             }
+
+            world.remove(drop, Layer.HOLDING)
+            world.add(drop, Layer.BOARD)
+
             drop.setHolding(false)
         }
         holdingDrop = null

@@ -9,8 +9,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     override val world = World(arrayOf(
         Layer.BACKGROUND,
         Layer.BOARD,
+        Layer.HOLDING,
         Layer.HUD,
         //Layer.BACKGROUND,
+        //Layer.HOLDING,
         //Layer.HUD,
         //Layer.BOARD,
     ))
