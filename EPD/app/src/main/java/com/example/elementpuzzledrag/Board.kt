@@ -70,6 +70,17 @@ class Board(
         return row to col
     }
 
+    private fun findVisibleCellAtWorld(worldX: Float, worldY: Float): Pair<Int, Int>? {
+        if (worldX < BOARD_LEFT || worldX >= BOARD_RIGHT) return null
+        if (worldY < BOARD_TOP || worldY >= VISIBLE_BOTTOM) return null
+
+        val col = ((worldX - BOARD_LEFT) / Drop.CELL_SIZE).toInt()
+        val rowFromTop = ((worldY - BOARD_TOP) / Drop.CELL_SIZE).toInt()
+        val row = (VISIBLE_ROWS - 1) - rowFromTop
+
+        return row to col
+    }
+
     private fun beginHold(row: Int, col: Int) {
         val drop = drops[row][col] ?: return
 
@@ -114,6 +125,29 @@ class Board(
         drop.y = pt.y.coerceIn(minY, maxY)
     }
 
+    private fun trySwapHoldingWith(targetRow: Int, targetCol: Int) {
+        val held = holdingDrop ?: return
+
+        if (targetRow == holdingRow && targetCol == holdingCol) return
+
+        val rowDiff = kotlin.math.abs(targetRow - holdingRow)
+        val colDiff = kotlin.math.abs(targetCol - holdingCol)
+
+        if (rowDiff + colDiff != 1) return
+
+        val other = drops[targetRow][targetCol] ?: return
+
+        drops[holdingRow][holdingCol] = other
+        drops[targetRow][targetCol] = held
+
+        other.setGridPosition(holdingRow, holdingCol)
+
+        held.row = targetRow
+        held.col = targetCol
+        holdingRow = targetRow
+        holdingCol = targetCol
+    }
+
     override fun update(gctx: GameContext) {
     }
 
@@ -136,8 +170,14 @@ class Board(
             }
 
             android.view.MotionEvent.ACTION_MOVE -> {
-                if (holdingDrop == null) return false
+                val held = holdingDrop ?: return false
+
                 moveHoldingDrop(event.x, event.y)
+
+                val cell = findVisibleCellAtWorld(held.x, held.y)
+                if (cell != null) {
+                    trySwapHoldingWith(cell.first, cell.second)
+                }
                 return true
             }
         }
