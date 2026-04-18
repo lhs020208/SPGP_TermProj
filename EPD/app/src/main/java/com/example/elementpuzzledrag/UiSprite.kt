@@ -13,9 +13,7 @@ open class UiSprite(
 ) : Sprite(gctx, resId) {
 
     init {
-        width = drawWidth
-        height = drawHeight
-        x = left + drawWidth / 2f
-        y = top + drawHeight / 2f
+        setSize(drawWidth, drawHeight)
+        setCenter(left + drawWidth / 2f, top + drawHeight / 2f)
     }
 }
