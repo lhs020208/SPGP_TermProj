@@ -27,6 +27,7 @@ class GameView @JvmOverloads constructor(
 
     // 프레임 시간, 리소스 접근, 화면 metrics, scene stack 같은 공통 게임 문맥을 한곳에 모아 둔다.
     private val gctx = GameContext(this)
+    private var running = true
 
     // context 가 Activity 이면 바로 반환하고,
     // ContextThemeWrapper 같은 래퍼가 감싸고 있으면 체인을 따라가며 Activity 를 찾는다.
@@ -63,6 +64,25 @@ class GameView @JvmOverloads constructor(
         gctx.sceneStack.top?.update(gctx)
     }
 
+    // 앱이 background 로 내려가는 동안에는 doFrame() 을 더 예약하지 않게 멈춘다.
+    // 이때 현재 Scene 에도 onPause() 를 전달해 각 장면이 입력, 사운드 같은 부수 상태를 정리할 기회를 준다.
+    fun pauseGame() {
+        if (!running) return
+        running = false
+        gctx.sceneStack.top?.onPause()
+    }
+
+    // foreground 로 돌아올 때는 직전 nanos 를 0 으로 끊어 준다.
+    // 그렇지 않으면 pause 되어 있던 시간 전체가 다음 doFrame() 의 frameTime 으로 잡혀
+    // 총알, 적, 쿨타임이 한 프레임에 훅 진행된 것으로 보일 수 있다.
+    fun resumeGame() {
+        if (running) return
+        running = true
+        gctx.currentTimeNanos = 0L
+        Choreographer.getInstance().postFrameCallback(this)
+        gctx.sceneStack.top?.onResume()
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
@@ -72,7 +92,12 @@ class GameView @JvmOverloads constructor(
             if (drawsDebugGrid) {
                 drawDebugGrid() // 가상 좌표계의 격자선을 그린다.
             }
-            gctx.sceneStack.top?.draw(this)
+            gctx.sceneStack.top?.let { topScene ->
+                if (topScene.clipsRect) {
+                    canvas.clipRect(gctx.metrics.borderRect)
+                }
+                topScene.draw(this)
+            }
             if (drawsDebugInfo || drawsFpsGraph) {
                 drawDebugInfo() // FPS 등의 디버그 정보를 그린다.
             }
@@ -99,6 +124,10 @@ class GameView @JvmOverloads constructor(
     // doFrame() 이 최초 호출 된 시점에는 previousNanos 가 0 이어서
     // 매우 큰 frameTime 이 생성되므로 0 일때에는 하면 안 된다.
     override fun doFrame(nanos: Long) {
+        // pauseGame() 직전에 이미 예약돼 있던 callback 하나가 늦게 도착할 수 있으므로,
+        // 멈춘 상태에서는 frameTime 계산이나 update 를 진행하지 않고 바로 무시한다.
+        if (!running) return
+
         val previousNanos = gctx.currentTimeNanos
         gctx.currentTimeNanos = nanos
         if (previousNanos != 0L) {
@@ -114,7 +143,7 @@ class GameView @JvmOverloads constructor(
 
             invalidate()
         }
-        if (isShown) {
+        if (running && isShown) {
             Choreographer.getInstance().postFrameCallback(this)
         }
     }
@@ -137,7 +166,7 @@ class GameView @JvmOverloads constructor(
 
     // 가상 좌표계가 실제로 어떤 범위와 간격을 가지는지 눈으로 확인하려고 그리는 디버그 격자이다.
     private fun Canvas.drawDebugGrid() {
-        drawRect(borderRect, borderPaint) // 현재 가상 좌표계의 경계
+        drawRect(gctx.metrics.borderRect, borderPaint) // 현재 가상 좌표계의 경계
         val step = 100f
 
         // 세로 격자선은 x 값을 100씩 늘리며 위에서 아래로 선을 긋는다.
@@ -155,7 +184,6 @@ class GameView @JvmOverloads constructor(
         }
     }
 
-    private val borderRect by lazy { RectF(0f, 0f, gctx.metrics.width, gctx.metrics.height) }
     private val borderPaint by lazy {
         Paint().apply {
             style = Paint.Style.STROKE // 테두리만 그린다.
