@@ -9,12 +9,9 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     override val world = World(arrayOf(
         Layer.BACKGROUND,
         Layer.BOARD,
-        Layer.HUD,
         Layer.HOLDING,
-        //Layer.BACKGROUND,
-        //Layer.HUD,
-        //Layer.BOARD,
-        //Layer.HOLDING,
+        Layer.HUD,
+        Layer.OVERLAY,
     ))
 
     private lateinit var board: Board
@@ -84,7 +81,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             Layer.BACKGROUND,
         )
         board = Board(gctx, world)
-        world.add(board, Layer.BOARD)
+        world.add(board, Layer.OVERLAY)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {

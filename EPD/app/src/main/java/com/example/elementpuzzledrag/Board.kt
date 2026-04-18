@@ -1,9 +1,11 @@
 package com.example.elementpuzzledrag
 
 import android.graphics.Canvas
+import android.graphics.Color
 import kr.ac.tukorea.ge.spgp2026.a2dg.objects.IGameObject
 import kr.ac.tukorea.ge.spgp2026.a2dg.scene.World
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
+import kr.ac.tukorea.ge.spgp2026.a2dg.util.Gauge
 import kotlin.random.Random
 
 class Board(
@@ -23,12 +25,23 @@ class Board(
         private const val ORTHO_SWAP_THRESHOLD = 75f
         private const val DIAGONAL_SWAP_THRESHOLD = 55f
         private const val SWAP_ANIMATION_DURATION = 0.08f
+        const val HOLD_LIMIT_SECONDS = 10f
+        private const val GAUGE_THICKNESS = 0.04f
+        private const val GAUGE_GAP = 14f
     }
 
     private val drops = Array(ROWS) { arrayOfNulls<Drop>(COLS) }
     private var holdingDrop: Drop? = null
     private var holdingRow = -1
     private var holdingCol = -1
+    private val holdGauge = Gauge(
+        thickness = GAUGE_THICKNESS,
+        fgColor = Color.rgb(255, 96, 64),
+        bgColor = Color.argb(160, 70, 70, 70),
+    )
+
+    private var timerStarted = false
+    private var remainingHoldTime = HOLD_LIMIT_SECONDS
 
     init {
         fillInitialDrops()
@@ -167,6 +180,8 @@ class Board(
         holdingDrop = null
         holdingRow = -1
         holdingCol = -1
+        timerStarted = false
+        remainingHoldTime = HOLD_LIMIT_SECONDS
     }
 
     private fun moveHoldingDrop(screenX: Float, screenY: Float) {
@@ -204,12 +219,34 @@ class Board(
         held.col = targetCol
         holdingRow = targetRow
         holdingCol = targetCol
+
+        if (!timerStarted) {
+            timerStarted = true
+            remainingHoldTime = HOLD_LIMIT_SECONDS
+        }
     }
 
     override fun update(gctx: GameContext) {
+        if (!timerStarted || holdingDrop == null) return
+
+        remainingHoldTime -= gctx.frameTime
+        if (remainingHoldTime <= 0f) {
+            remainingHoldTime = 0f
+            clearHold()
+        }
     }
 
     override fun draw(canvas: Canvas) {
+        if (!timerStarted) return
+
+        val drop = holdingDrop ?: return
+        val progress = (remainingHoldTime / HOLD_LIMIT_SECONDS).coerceIn(0f, 1f)
+
+        val gaugeWidth = drop.width
+        val gaugeX = drop.x - gaugeWidth / 2f
+        val gaugeY = drop.y - drop.height / 2f - GAUGE_GAP
+
+        holdGauge.draw(canvas, gaugeX, gaugeY, gaugeWidth, progress)
     }
 
     fun onTouchEvent(event: android.view.MotionEvent): Boolean {

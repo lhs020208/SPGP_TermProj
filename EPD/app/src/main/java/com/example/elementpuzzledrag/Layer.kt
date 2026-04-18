@@ -5,4 +5,5 @@ enum class Layer {
     BOARD,
     HOLDING,
     HUD,
+    OVERLAY,
 }
