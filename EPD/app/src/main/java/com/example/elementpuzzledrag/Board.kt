@@ -29,6 +29,15 @@ class Board(
         private const val GAUGE_THICKNESS = 0.05f
         private const val GAUGE_GAP = 14f
         private const val MATCH_GROUP_REMOVE_INTERVAL = 0.12f
+
+        private const val USE_DEBUG_VISIBLE_BOARD = true
+        private val DEBUG_VISIBLE_BOARD_TOP_TO_BOTTOM = listOf(
+            "RRBRBB",
+            "BBGBGG",
+            "GGYGYY",
+            "YYPYPP",
+            "PPHPHH",
+        )
     }
 
     private val drops = Array(ROWS) { arrayOfNulls<Drop>(COLS) }
@@ -118,7 +127,7 @@ class Board(
                     gctx = gctx,
                     row = row,
                     col = col,
-                    type = randomDropType(),
+                    type = initialDropTypeAt(row, col),
                 )
                 drops[row][col] = drop
                 world.add(drop, Layer.BOARD)
@@ -135,6 +144,28 @@ class Board(
         if (row !in 0 until ROWS) return null
         if (col !in 0 until COLS) return null
         return drops[row][col]
+    }
+
+    private fun charToDropType(ch: Char): DropType {
+        return when (ch) {
+            'R' -> DropType.FIRE
+            'B' -> DropType.WATER
+            'G' -> DropType.LEAF
+            'Y' -> DropType.LIGHT
+            'P' -> DropType.DARK
+            'H' -> DropType.HP
+            else -> error("Unknown drop code: $ch")
+        }
+    }
+
+    private fun initialDropTypeAt(row: Int, col: Int): DropType {
+        if (USE_DEBUG_VISIBLE_BOARD && row in 0 until VISIBLE_ROWS) {
+            val lineIndexFromTop = VISIBLE_ROWS - 1 - row
+            val ch = DEBUG_VISIBLE_BOARD_TOP_TO_BOTTOM[lineIndexFromTop][col]
+            return charToDropType(ch)
+        }
+
+        return randomDropType()
     }
 
     private fun findVisibleCell(screenX: Float, screenY: Float): Pair<Int, Int>? {
