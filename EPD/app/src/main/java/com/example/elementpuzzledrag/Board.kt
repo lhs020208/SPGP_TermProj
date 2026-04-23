@@ -25,7 +25,7 @@ class Board(
         private const val ORTHO_SWAP_THRESHOLD = 75f
         private const val DIAGONAL_SWAP_THRESHOLD = 55f
         private const val SWAP_ANIMATION_DURATION = 0.08f
-        const val HOLD_LIMIT_SECONDS = 10f
+        const val HOLD_LIMIT_SECONDS = 20f
         private const val GAUGE_THICKNESS = 0.04f
         private const val GAUGE_GAP = 14f
     }
