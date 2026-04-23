@@ -28,6 +28,7 @@ class Board(
         const val HOLD_LIMIT_SECONDS = 20f
         private const val GAUGE_THICKNESS = 0.05f
         private const val GAUGE_GAP = 14f
+        private const val MATCH_GROUP_REMOVE_INTERVAL = 0.12f
     }
 
     private val drops = Array(ROWS) { arrayOfNulls<Drop>(COLS) }
@@ -43,6 +44,9 @@ class Board(
 
     private var timerStarted = false
     private var remainingHoldTime = HOLD_LIMIT_SECONDS
+    private var resolvingMatches = false
+    private val pendingMatchGroups = mutableListOf<MatchGroup>()
+    private var matchRemoveDelay = 0f
 
     private data class MatchGroup(
         val type: DropType,
@@ -234,6 +238,24 @@ class Board(
         }
     }
 
+    private fun getGroupTopRow(group: MatchGroup): Int {
+        return group.cells.maxOf { it.first }
+    }
+
+    private fun getGroupLeftColAtTop(group: MatchGroup): Int {
+        val topRow = getGroupTopRow(group)
+        return group.cells
+            .filter { it.first == topRow }
+            .minOf { it.second }
+    }
+
+    private fun sortMatchGroups(groups: List<MatchGroup>): List<MatchGroup> {
+        return groups.sortedWith(
+            compareByDescending<MatchGroup> { getGroupTopRow(it) }
+                .thenBy { getGroupLeftColAtTop(it) }
+        )
+    }
+
     private fun findMatchGroups(): List<MatchGroup> {
         val matched = Array(VISIBLE_ROWS) { BooleanArray(COLS) }
 
@@ -334,30 +356,58 @@ class Board(
         return groups
     }
 
-    private fun removeMatchGroups(groups: List<MatchGroup>) {
-        for (group in groups) {
-            for ((row, col) in group.cells) {
-                val drop = drops[row][col] ?: continue
-                world.remove(drop, Layer.BOARD)
-                drops[row][col] = null
-            }
+    private fun removeMatchGroup(group: MatchGroup) {
+        for ((row, col) in group.cells) {
+            val drop = drops[row][col] ?: continue
+            world.remove(drop, Layer.BOARD)
+            drops[row][col] = null
         }
     }
 
-    private fun resolveMatchesOnce() {
+    private fun startResolveMatches() {
         val groups = findMatchGroups()
         if (groups.isEmpty()) return
 
-        removeMatchGroups(groups)
+        pendingMatchGroups.clear()
+        pendingMatchGroups.addAll(sortMatchGroups(groups))
+
+        resolvingMatches = true
+        matchRemoveDelay = 0f
     }
 
     override fun update(gctx: GameContext) {
+        if (resolvingMatches) {
+            matchRemoveDelay -= gctx.frameTime
+
+            if (matchRemoveDelay <= 0f) {
+                if (pendingMatchGroups.isNotEmpty()) {
+                    val nextGroup = pendingMatchGroups.removeAt(0)
+                    removeMatchGroup(nextGroup)
+                    matchRemoveDelay = MATCH_GROUP_REMOVE_INTERVAL
+                }
+
+                if (pendingMatchGroups.isEmpty()) {
+                    resolvingMatches = false
+                    matchRemoveDelay = 0f
+                }
+            }
+            return
+        }
+
         if (!timerStarted || holdingDrop == null) return
 
         remainingHoldTime -= gctx.frameTime
         if (remainingHoldTime <= 0f) {
             remainingHoldTime = 0f
+
+            val shouldResolve = swappedDuringHold
             clearHold()
+
+            if (shouldResolve) {
+                startResolveMatches()
+            }
+
+            swappedDuringHold = false
         }
     }
 
@@ -375,6 +425,7 @@ class Board(
     }
 
     fun onTouchEvent(event: android.view.MotionEvent): Boolean {
+        if (resolvingMatches) return true
         when (event.actionMasked) {
             android.view.MotionEvent.ACTION_DOWN -> {
                 val cell = findVisibleCell(event.x, event.y) ?: return false
@@ -390,7 +441,7 @@ class Board(
                 clearHold()
 
                 if (shouldResolve) {
-                    resolveMatchesOnce()
+                    startResolveMatches()
                 }
 
                 swappedDuringHold = false
