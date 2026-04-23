@@ -395,6 +395,28 @@ class Board(
         }
     }
 
+    private fun applyGravityOnce() {
+        for (col in 0 until COLS) {
+            var writeRow = 0
+
+            for (readRow in 0 until ROWS) {
+                val drop = drops[readRow][col] ?: continue
+
+                if (readRow != writeRow) {
+                    drops[writeRow][col] = drop
+                    drops[readRow][col] = null
+                    drop.setGridPosition(writeRow, col)
+                }
+
+                writeRow++
+            }
+
+            for (row in writeRow until ROWS) {
+                drops[row][col] = null
+            }
+        }
+    }
+
     private fun startResolveMatches() {
         val groups = findMatchGroups()
         if (groups.isEmpty()) return
@@ -418,6 +440,7 @@ class Board(
                 }
 
                 if (pendingMatchGroups.isEmpty()) {
+                    applyGravityOnce()
                     resolvingMatches = false
                     matchRemoveDelay = 0f
                 }

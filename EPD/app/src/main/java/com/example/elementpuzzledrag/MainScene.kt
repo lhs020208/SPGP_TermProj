@@ -6,13 +6,29 @@ import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
 import android.view.MotionEvent
 
 class MainScene(gctx: GameContext) : Scene(gctx) {
-    override val world = World(arrayOf(
-        Layer.BACKGROUND,
-        Layer.BOARD,
-        Layer.HOLDING,
-        Layer.HUD,
-        Layer.OVERLAY,
-    ))
+
+    companion object {
+        private const val SHOW_HIDDEN_DROPS_FOR_DEBUG = true
+    }
+    override val world = World(
+        if (SHOW_HIDDEN_DROPS_FOR_DEBUG) {
+            arrayOf(
+                Layer.BACKGROUND,
+                Layer.HUD,
+                Layer.BOARD,
+                Layer.HOLDING,
+                Layer.OVERLAY,
+            )
+        } else {
+            arrayOf(
+                Layer.BACKGROUND,
+                Layer.BOARD,
+                Layer.HOLDING,
+                Layer.HUD,
+                Layer.OVERLAY,
+            )
+        }
+    )
 
     private lateinit var board: Board
 
