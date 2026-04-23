@@ -26,7 +26,7 @@ class Board(
         private const val DIAGONAL_SWAP_THRESHOLD = 55f
         private const val SWAP_ANIMATION_DURATION = 0.08f
         const val HOLD_LIMIT_SECONDS = 20f
-        private const val GAUGE_THICKNESS = 0.04f
+        private const val GAUGE_THICKNESS = 0.05f
         private const val GAUGE_GAP = 14f
     }
 
@@ -34,6 +34,7 @@ class Board(
     private var holdingDrop: Drop? = null
     private var holdingRow = -1
     private var holdingCol = -1
+    private var swappedDuringHold = false
     private val holdGauge = Gauge(
         thickness = GAUGE_THICKNESS,
         fgColor = Color.rgb(255, 96, 64),
@@ -42,6 +43,11 @@ class Board(
 
     private var timerStarted = false
     private var remainingHoldTime = HOLD_LIMIT_SECONDS
+
+    private data class MatchGroup(
+        val type: DropType,
+        val cells: MutableList<Pair<Int, Int>> = mutableListOf(),
+    )
 
     init {
         fillInitialDrops()
@@ -164,6 +170,7 @@ class Board(
         world.add(drop, Layer.HOLDING)
 
         drop.setHolding(true)
+        swappedDuringHold = false
     }
 
     private fun clearHold() {
@@ -219,11 +226,129 @@ class Board(
         held.col = targetCol
         holdingRow = targetRow
         holdingCol = targetCol
+        swappedDuringHold = true
 
         if (!timerStarted) {
             timerStarted = true
             remainingHoldTime = HOLD_LIMIT_SECONDS
         }
+    }
+
+    private fun findMatchGroups(): List<MatchGroup> {
+        val matched = Array(VISIBLE_ROWS) { BooleanArray(COLS) }
+
+        // 가로 검사
+        for (row in 0 until VISIBLE_ROWS) {
+            var col = 0
+            while (col < COLS) {
+                val startDrop = drops[row][col]
+                if (startDrop == null) {
+                    col++
+                    continue
+                }
+
+                val type = startDrop.type
+                var end = col + 1
+                while (end < COLS && drops[row][end]?.type == type) {
+                    end++
+                }
+
+                if (end - col >= 3) {
+                    for (c in col until end) {
+                        matched[row][c] = true
+                    }
+                }
+                col = end
+            }
+        }
+
+        // 세로 검사
+        for (col in 0 until COLS) {
+            var row = 0
+            while (row < VISIBLE_ROWS) {
+                val startDrop = drops[row][col]
+                if (startDrop == null) {
+                    row++
+                    continue
+                }
+
+                val type = startDrop.type
+                var end = row + 1
+                while (end < VISIBLE_ROWS && drops[end][col]?.type == type) {
+                    end++
+                }
+
+                if (end - row >= 3) {
+                    for (r in row until end) {
+                        matched[r][col] = true
+                    }
+                }
+                row = end
+            }
+        }
+
+        // 마킹된 칸들을 같은 타입 + 상하좌우 연결 기준으로 그룹화
+        val visited = Array(VISIBLE_ROWS) { BooleanArray(COLS) }
+        val groups = mutableListOf<MatchGroup>()
+        val directions = arrayOf(
+            intArrayOf(1, 0),
+            intArrayOf(-1, 0),
+            intArrayOf(0, 1),
+            intArrayOf(0, -1),
+        )
+
+        for (row in 0 until VISIBLE_ROWS) {
+            for (col in 0 until COLS) {
+                if (!matched[row][col] || visited[row][col]) continue
+
+                val type = drops[row][col]?.type ?: continue
+                val group = MatchGroup(type)
+                val queue = ArrayDeque<Pair<Int, Int>>()
+
+                visited[row][col] = true
+                queue.addLast(row to col)
+
+                while (queue.isNotEmpty()) {
+                    val (cr, cc) = queue.removeFirst()
+                    group.cells.add(cr to cc)
+
+                    for ((dr, dc) in directions) {
+                        val nr = cr + dr
+                        val nc = cc + dc
+
+                        if (nr !in 0 until VISIBLE_ROWS) continue
+                        if (nc !in 0 until COLS) continue
+                        if (visited[nr][nc]) continue
+                        if (!matched[nr][nc]) continue
+                        if (drops[nr][nc]?.type != type) continue
+
+                        visited[nr][nc] = true
+                        queue.addLast(nr to nc)
+                    }
+                }
+
+                groups.add(group)
+            }
+        }
+
+        return groups
+    }
+
+    private fun removeMatchGroups(groups: List<MatchGroup>) {
+        for (group in groups) {
+            for ((row, col) in group.cells) {
+                val drop = drops[row][col] ?: continue
+                world.remove(drop, Layer.BOARD)
+                drops[row][col] = null
+            }
+        }
+    }
+
+    private fun resolveMatchesOnce() {
+        val groups = findMatchGroups()
+        if (groups.isEmpty()) return
+
+        removeMatchGroups(groups)
     }
 
     override fun update(gctx: GameContext) {
@@ -260,7 +385,15 @@ class Board(
 
             android.view.MotionEvent.ACTION_UP,
             android.view.MotionEvent.ACTION_CANCEL -> {
+                val shouldResolve = swappedDuringHold
+
                 clearHold()
+
+                if (shouldResolve) {
+                    resolveMatchesOnce()
+                }
+
+                swappedDuringHold = false
                 return true
             }
 
