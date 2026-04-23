@@ -417,6 +417,23 @@ class Board(
         }
     }
 
+    private fun fillEmptyCellsRandomly() {
+        for (col in 0 until COLS) {
+            for (row in 0 until ROWS) {
+                if (drops[row][col] != null) continue
+
+                val drop = Drop(
+                    gctx = gctx,
+                    row = row,
+                    col = col,
+                    type = randomDropType(),
+                )
+                drops[row][col] = drop
+                world.add(drop, Layer.BOARD)
+            }
+        }
+    }
+
     private fun startResolveMatches() {
         val groups = findMatchGroups()
         if (groups.isEmpty()) return
@@ -441,6 +458,7 @@ class Board(
 
                 if (pendingMatchGroups.isEmpty()) {
                     applyGravityOnce()
+                    fillEmptyCellsRandomly()
                     resolvingMatches = false
                     matchRemoveDelay = 0f
                 }
