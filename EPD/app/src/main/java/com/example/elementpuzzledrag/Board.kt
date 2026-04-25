@@ -26,10 +26,11 @@ class Board(
         private const val DIAGONAL_SWAP_THRESHOLD = 55f
         private const val SWAP_ANIMATION_DURATION = 0.08f
         private const val GRAVITY_ANIMATION_DURATION = SWAP_ANIMATION_DURATION
+        private const val NEXT_CASCADE_DELAY = 0.75f
         const val HOLD_LIMIT_SECONDS = 20f
         private const val GAUGE_THICKNESS = 0.05f
         private const val GAUGE_GAP = 14f
-        private const val MATCH_GROUP_REMOVE_INTERVAL = 0.12f
+        private const val MATCH_GROUP_REMOVE_INTERVAL = 0.5f
 
         private const val USE_DEBUG_VISIBLE_BOARD = true
         private val DEBUG_VISIBLE_BOARD_TOP_TO_BOTTOM = listOf(
@@ -59,6 +60,8 @@ class Board(
     private var matchRemoveDelay = 0f
     private var gravityAnimating = false
     private var gravityAnimationRemaining = 0f
+    private var waitingNextCascade = false
+    private var nextCascadeDelayRemaining = 0f
 
     private data class MatchGroup(
         val type: DropType,
@@ -445,9 +448,14 @@ class Board(
     private fun finishAfterGravityAnimation() {
         fillEmptyCellsRandomly()
 
-        if (!preparePendingMatchGroups()) {
+        if (preparePendingMatchGroups()) {
+            waitingNextCascade = true
+            nextCascadeDelayRemaining = NEXT_CASCADE_DELAY
+        } else {
             resolvingMatches = false
             matchRemoveDelay = 0f
+            waitingNextCascade = false
+            nextCascadeDelayRemaining = 0f
         }
     }
 
@@ -470,6 +478,8 @@ class Board(
         resolvingMatches = true
         gravityAnimating = false
         gravityAnimationRemaining = 0f
+        waitingNextCascade = false
+        nextCascadeDelayRemaining = 0f
     }
 
     override fun update(gctx: GameContext) {
@@ -484,23 +494,34 @@ class Board(
                 return
             }
 
+            if (waitingNextCascade) {
+                nextCascadeDelayRemaining -= gctx.frameTime
+                if (nextCascadeDelayRemaining <= 0f) {
+                    waitingNextCascade = false
+                    nextCascadeDelayRemaining = 0f
+                    matchRemoveDelay = 0f
+                }
+                return
+            }
+
             matchRemoveDelay -= gctx.frameTime
 
             if (matchRemoveDelay <= 0f) {
                 if (pendingMatchGroups.isNotEmpty()) {
                     val nextGroup = pendingMatchGroups.removeAt(0)
                     removeMatchGroup(nextGroup)
-                    matchRemoveDelay = MATCH_GROUP_REMOVE_INTERVAL
-                }
 
-                if (pendingMatchGroups.isEmpty()) {
-                    val moved = applyGravityAnimated()
-
-                    if (moved) {
-                        gravityAnimating = true
-                        gravityAnimationRemaining = GRAVITY_ANIMATION_DURATION
+                    if (pendingMatchGroups.isNotEmpty()) {
+                        matchRemoveDelay = MATCH_GROUP_REMOVE_INTERVAL
                     } else {
-                        finishAfterGravityAnimation()
+                        val moved = applyGravityAnimated()
+
+                        if (moved) {
+                            gravityAnimating = true
+                            gravityAnimationRemaining = GRAVITY_ANIMATION_DURATION
+                        } else {
+                            finishAfterGravityAnimation()
+                        }
                     }
                 }
             }
