@@ -25,6 +25,7 @@ class Board(
         private const val ORTHO_SWAP_THRESHOLD = 75f
         private const val DIAGONAL_SWAP_THRESHOLD = 55f
         private const val SWAP_ANIMATION_DURATION = 0.08f
+        private const val GRAVITY_ANIMATION_DURATION = SWAP_ANIMATION_DURATION
         const val HOLD_LIMIT_SECONDS = 20f
         private const val GAUGE_THICKNESS = 0.05f
         private const val GAUGE_GAP = 14f
@@ -56,6 +57,8 @@ class Board(
     private var resolvingMatches = false
     private val pendingMatchGroups = mutableListOf<MatchGroup>()
     private var matchRemoveDelay = 0f
+    private var gravityAnimating = false
+    private var gravityAnimationRemaining = 0f
 
     private data class MatchGroup(
         val type: DropType,
@@ -394,7 +397,9 @@ class Board(
         }
     }
 
-    private fun applyGravityOnce() {
+    private fun applyGravityAnimated(): Boolean {
+        var movedAny = false
+
         for (col in 0 until COLS) {
             var writeRow = 0
 
@@ -404,7 +409,8 @@ class Board(
                 if (readRow != writeRow) {
                     drops[writeRow][col] = drop
                     drops[readRow][col] = null
-                    drop.setGridPosition(writeRow, col)
+                    drop.animateToGrid(writeRow, col, GRAVITY_ANIMATION_DURATION)
+                    movedAny = true
                 }
 
                 writeRow++
@@ -414,6 +420,8 @@ class Board(
                 drops[row][col] = null
             }
         }
+
+        return movedAny
     }
 
     private fun fillEmptyCellsRandomly() {
@@ -434,6 +442,15 @@ class Board(
         }
     }
 
+    private fun finishAfterGravityAnimation() {
+        fillEmptyCellsRandomly()
+
+        if (!preparePendingMatchGroups()) {
+            resolvingMatches = false
+            matchRemoveDelay = 0f
+        }
+    }
+
     private fun preparePendingMatchGroups(): Boolean {
         val groups = findMatchGroups()
         if (groups.isEmpty()) {
@@ -451,10 +468,22 @@ class Board(
         if (!preparePendingMatchGroups()) return
 
         resolvingMatches = true
+        gravityAnimating = false
+        gravityAnimationRemaining = 0f
     }
 
     override fun update(gctx: GameContext) {
         if (resolvingMatches) {
+            if (gravityAnimating) {
+                gravityAnimationRemaining -= gctx.frameTime
+                if (gravityAnimationRemaining <= 0f) {
+                    gravityAnimating = false
+                    gravityAnimationRemaining = 0f
+                    finishAfterGravityAnimation()
+                }
+                return
+            }
+
             matchRemoveDelay -= gctx.frameTime
 
             if (matchRemoveDelay <= 0f) {
@@ -465,12 +494,13 @@ class Board(
                 }
 
                 if (pendingMatchGroups.isEmpty()) {
-                    applyGravityOnce()
-                    fillEmptyCellsRandomly()
+                    val moved = applyGravityAnimated()
 
-                    if (!preparePendingMatchGroups()) {
-                        resolvingMatches = false
-                        matchRemoveDelay = 0f
+                    if (moved) {
+                        gravityAnimating = true
+                        gravityAnimationRemaining = GRAVITY_ANIMATION_DURATION
+                    } else {
+                        finishAfterGravityAnimation()
                     }
                 }
             }
