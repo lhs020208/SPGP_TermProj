@@ -426,7 +426,7 @@ class Board(
                     world = world,
                     row = row,
                     col = col,
-                    type = initialDropTypeAt(row, col),
+                    type = randomDropType(),
                 )
                 drops[row][col] = drop
                 world.add(drop, Layer.BOARD)
@@ -434,15 +434,23 @@ class Board(
         }
     }
 
-    private fun startResolveMatches() {
+    private fun preparePendingMatchGroups(): Boolean {
         val groups = findMatchGroups()
-        if (groups.isEmpty()) return
+        if (groups.isEmpty()) {
+            pendingMatchGroups.clear()
+            return false
+        }
 
         pendingMatchGroups.clear()
         pendingMatchGroups.addAll(sortMatchGroups(groups))
+        matchRemoveDelay = 0f
+        return true
+    }
+
+    private fun startResolveMatches() {
+        if (!preparePendingMatchGroups()) return
 
         resolvingMatches = true
-        matchRemoveDelay = 0f
     }
 
     override fun update(gctx: GameContext) {
@@ -459,8 +467,11 @@ class Board(
                 if (pendingMatchGroups.isEmpty()) {
                     applyGravityOnce()
                     fillEmptyCellsRandomly()
-                    resolvingMatches = false
-                    matchRemoveDelay = 0f
+
+                    if (!preparePendingMatchGroups()) {
+                        resolvingMatches = false
+                        matchRemoveDelay = 0f
+                    }
                 }
             }
             return
