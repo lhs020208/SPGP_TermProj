@@ -1,9 +1,11 @@
 package com.example.elementpuzzledrag
 
 enum class Layer {
-    BACKGROUND,
+    PUZZLE_BG,
     BOARD,
-    HOLDING,
+    STAGE,
     HUD,
+    HOLDING,
     OVERLAY,
+    MONSTER,
 }

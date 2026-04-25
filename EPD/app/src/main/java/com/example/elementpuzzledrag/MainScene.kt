@@ -8,24 +8,28 @@ import android.view.MotionEvent
 class MainScene(gctx: GameContext) : Scene(gctx) {
 
     companion object {
-        private const val SHOW_HIDDEN_DROPS_FOR_DEBUG = true
+        private const val SHOW_HIDDEN_DROPS_FOR_DEBUG = false
     }
     override val world = World(
         if (SHOW_HIDDEN_DROPS_FOR_DEBUG) {
             arrayOf(
-                Layer.BACKGROUND,
+                Layer.PUZZLE_BG,
+                Layer.STAGE,
                 Layer.HUD,
                 Layer.BOARD,
                 Layer.HOLDING,
                 Layer.OVERLAY,
+                Layer.MONSTER,
             )
         } else {
             arrayOf(
-                Layer.BACKGROUND,
+                Layer.PUZZLE_BG,
                 Layer.BOARD,
-                Layer.HOLDING,
+                Layer.STAGE,
                 Layer.HUD,
+                Layer.HOLDING,
                 Layer.OVERLAY,
+                Layer.MONSTER,
             )
         }
     )
@@ -58,7 +62,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 screenW,
                 stageHeight,
             ),
-            Layer.HUD,
+            Layer.STAGE,
         )
 
         world.add(
@@ -94,7 +98,21 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 screenW,
                 puzzleHeight,
             ),
-            Layer.BACKGROUND,
+            Layer.PUZZLE_BG,
+        )
+
+        world.add(
+            Monster(
+                gameContext = gctx,
+                attribute = DropType.FIRE,
+                attackPower = 100,
+                hp = 500,
+                remainingAttackTurns = 3,
+                resId = R.mipmap.m_firemonmus,
+                centerX = screenW / 2f,
+                centerY = stageTop + stageHeight / 2f,
+            ),
+            Layer.MONSTER,
         )
         board = Board(gctx, world)
         world.add(board, Layer.OVERLAY)
