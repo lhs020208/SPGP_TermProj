@@ -2,15 +2,18 @@ package com.example.elementpuzzledrag
 
 import kr.ac.tukorea.ge.spgp2026.a2dg.objects.Sprite
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
+import kr.ac.tukorea.ge.spgp2026.a2dg.objects.IRecyclable
+import kr.ac.tukorea.ge.spgp2026.a2dg.scene.World
 import android.graphics.Canvas
 import android.graphics.Paint
 
-class Drop(
-    gctx: GameContext,
-    var row: Int,
-    var col: Int,
-    var type: DropType,
-) : Sprite(gctx, type.toResId()) {
+class Drop private constructor(
+    private val gameContext: GameContext,
+) : Sprite(gameContext, DropType.FIRE.toResId()), IRecyclable {
+
+    var row = 0
+    var col = 0
+    var type = DropType.FIRE
 
     private val drawPaint = Paint()
     private var isHolding = false
@@ -25,24 +28,17 @@ class Drop(
     companion object {
         const val CELL_SIZE = 150f
         const val DROP_SIZE = 120f
-
-        const val FIRST_CENTER_X = 75f
-
-        const val BOARD_TOP = 850f
-        const val BOTTOM_VISIBLE_CENTER_Y = 1525f
-
         const val HOLD_SIZE = 150f
+
+        fun get(gctx: GameContext, world: World<Layer>, row: Int, col: Int, type: DropType): Drop{
+            val drop = world.obtain(Drop::class.java) ?: Drop(gctx)
+            return drop.init(row, col, type)
+        }
     }
 
     init {
-        width = DROP_SIZE
-        height = DROP_SIZE
-        updatePosition()
-    }
-
-    fun updatePosition() {
-        x = FIRST_CENTER_X + CELL_SIZE * col
-        y = BOTTOM_VISIBLE_CENTER_Y - CELL_SIZE * row
+        setHolding(false)
+        setGridPosition(0, 0)
     }
 
     fun setGridPosition(row: Int, col: Int) {
@@ -91,6 +87,26 @@ class Drop(
         }
     }
 
+    fun init(row: Int, col: Int, type: DropType): Drop {
+        this.row = row
+        this.col = col
+        this.type = type
+
+        bitmap = gameContext.res.getBitmap(type.toResId())
+
+        isAnimating = false
+        animStartX = 0f
+        animStartY = 0f
+        animTargetX = 0f
+        animTargetY = 0f
+        animElapsed = 0f
+        animDuration = 0f
+
+        setHolding(false)
+        setGridPosition(row, col)
+        return this
+    }
+
     override fun draw(canvas: Canvas) {
         syncDstRect()
         canvas.drawBitmap(bitmap, srcRect, dstRect, drawPaint)
@@ -111,4 +127,12 @@ class Drop(
             setCenter(animTargetX, animTargetY)
         }
     }
+
+    override fun onRecycle() {
+        isAnimating = false
+        animElapsed = 0f
+        animDuration = 0f
+        setHolding(false)
+    }
+
 }

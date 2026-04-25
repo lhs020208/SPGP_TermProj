@@ -113,6 +113,13 @@ class World<TLayer>(
         return true
     }
 
+    fun moveBetweenLayers(gameObject: IGameObject, fromLayer: TLayer, toLayer: TLayer): Boolean {
+        val removed = layers.getValue(fromLayer).remove(gameObject)
+        if (!removed) return false
+        layers.getValue(toLayer).add(gameObject)
+        return true
+    }
+
     // 재활용 가능한 객체를 bin 에 넣는다.
     // getOrPut() 도 쓸 수 있지만, 지금 단계에서는 작은 lambda 생성 가능성까지 피하기 위해
     // null check 로 직접 분기한다.

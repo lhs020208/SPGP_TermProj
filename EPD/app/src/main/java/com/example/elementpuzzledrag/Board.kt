@@ -123,8 +123,9 @@ class Board(
     private fun fillInitialDrops() {
         for (row in 0 until ROWS) {
             for (col in 0 until COLS) {
-                val drop = Drop(
+                val drop = Drop.get(
                     gctx = gctx,
+                    world = world,
                     row = row,
                     col = col,
                     type = initialDropTypeAt(row, col),
@@ -201,8 +202,7 @@ class Board(
         holdingRow = row
         holdingCol = col
 
-        world.remove(drop, Layer.BOARD)
-        world.add(drop, Layer.HOLDING)
+        world.moveBetweenLayers(drop, Layer.BOARD, Layer.HOLDING)
 
         drop.setHolding(true)
         swappedDuringHold = false
@@ -214,8 +214,7 @@ class Board(
                 drop.setGridPosition(holdingRow, holdingCol)
             }
 
-            world.remove(drop, Layer.HOLDING)
-            world.add(drop, Layer.BOARD)
+            world.moveBetweenLayers(drop, Layer.HOLDING, Layer.BOARD)
 
             drop.setHolding(false)
         }
@@ -422,11 +421,12 @@ class Board(
             for (row in 0 until ROWS) {
                 if (drops[row][col] != null) continue
 
-                val drop = Drop(
+                val drop = Drop.get(
                     gctx = gctx,
+                    world = world,
                     row = row,
                     col = col,
-                    type = randomDropType(),
+                    type = initialDropTypeAt(row, col),
                 )
                 drops[row][col] = drop
                 world.add(drop, Layer.BOARD)
