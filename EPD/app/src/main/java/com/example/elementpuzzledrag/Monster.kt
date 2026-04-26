@@ -40,8 +40,8 @@ class Monster(
             "Monster attribute cannot be DropType.HP"
         }
 
-        val widthToUse = drawWidth ?: bitmapWidth.toFloat() * 2f
-        val heightToUse = drawHeight ?: bitmapHeight.toFloat() * 2f
+        val widthToUse = drawWidth ?: bitmapWidth.toFloat() * 3f
+        val heightToUse = drawHeight ?: bitmapHeight.toFloat() * 3f
 
         setSize(widthToUse, heightToUse)
         setCenter(centerX, centerY)
@@ -70,17 +70,15 @@ class Monster(
 
         val turnBitmap = gameContext.res.getBitmap(attackTurnResId())
 
-        val left = x - width / 2f
-        val top = y - height / 2f
-
-        val iconSize = minOf(width, height) * 0.28f
-        val padding = iconSize * 0.18f
+        val iconWidth = turnBitmap.width
+        val iconHeight = turnBitmap.height
+        val gap = 40f
 
         val dst = RectF(
-            left + padding,
-            top + padding,
-            left + padding + iconSize,
-            top + padding + iconSize,
+            x - iconWidth / 3f + 50f,
+            y - height / 4f - (iconHeight + 40f) / 2f - gap,
+            x + iconWidth / 3f + 50f,
+            y - height / 4f - gap,
         )
 
         canvas.drawBitmap(turnBitmap, null, dst, null)
