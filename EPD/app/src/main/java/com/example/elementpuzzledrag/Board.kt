@@ -26,11 +26,12 @@ class Board(
         private const val DIAGONAL_SWAP_THRESHOLD = 55f
         private const val SWAP_ANIMATION_DURATION = 0.08f
         private const val GRAVITY_ANIMATION_DURATION = SWAP_ANIMATION_DURATION
-        private const val NEXT_CASCADE_DELAY = 0.75f
+        private const val NEXT_CASCADE_DELAY = 1f
         const val HOLD_LIMIT_SECONDS = 20f
         private const val GAUGE_THICKNESS = 0.05f
         private const val GAUGE_GAP = 14f
         private const val MATCH_GROUP_REMOVE_INTERVAL = 0.5f
+        private const val BEFORE_GRAVITY_DELAY = 0.5f
 
         private const val USE_DEBUG_VISIBLE_BOARD = true
         private val DEBUG_VISIBLE_BOARD_TOP_TO_BOTTOM = listOf(
@@ -57,12 +58,15 @@ class Board(
     private var remainingHoldTime = HOLD_LIMIT_SECONDS
     private var resolvingMatches = false
     private val pendingMatchGroups = mutableListOf<MatchGroup>()
-    private var matchRemoveDelay = 0f
-    private var gravityAnimating = false
-    private var gravityAnimationRemaining = 0f
-    private var waitingNextCascade = false
-    private var nextCascadeDelayRemaining = 0f
+    private var matchRemoveDelay = 3f
 
+    private var waitingBeforeGravity = false
+    private var beforeGravityDelayRemaining = 0f
+
+    private var gravityAnimating = false
+    private var gravityAnimationRemaining = 10f
+    private var waitingNextCascade = false
+    private var nextCascadeDelayRemaining = 3f
     private data class MatchGroup(
         val type: DropType,
         val cells: MutableList<Pair<Int, Int>> = mutableListOf(),
@@ -427,6 +431,22 @@ class Board(
         return movedAny
     }
 
+    private fun startBeforeGravityDelay() {
+        waitingBeforeGravity = true
+        beforeGravityDelayRemaining = BEFORE_GRAVITY_DELAY
+    }
+
+    private fun applyGravityOrFinish() {
+        val moved = applyGravityAnimated()
+
+        if (moved) {
+            gravityAnimating = true
+            gravityAnimationRemaining = GRAVITY_ANIMATION_DURATION
+        } else {
+            finishAfterGravityAnimation()
+        }
+    }
+
     private fun fillEmptyCellsRandomly() {
         for (col in 0 until COLS) {
             for (row in 0 until ROWS) {
@@ -446,6 +466,9 @@ class Board(
     }
 
     private fun finishAfterGravityAnimation() {
+        waitingBeforeGravity = false
+        beforeGravityDelayRemaining = 0f
+
         fillEmptyCellsRandomly()
 
         if (preparePendingMatchGroups()) {
@@ -476,8 +499,13 @@ class Board(
         if (!preparePendingMatchGroups()) return
 
         resolvingMatches = true
+
+        waitingBeforeGravity = false
+        beforeGravityDelayRemaining = 0f
+
         gravityAnimating = false
         gravityAnimationRemaining = 0f
+
         waitingNextCascade = false
         nextCascadeDelayRemaining = 0f
     }
@@ -490,6 +518,16 @@ class Board(
                     gravityAnimating = false
                     gravityAnimationRemaining = 0f
                     finishAfterGravityAnimation()
+                }
+                return
+            }
+
+            if (waitingBeforeGravity) {
+                beforeGravityDelayRemaining -= gctx.frameTime
+                if (beforeGravityDelayRemaining <= 0f) {
+                    waitingBeforeGravity = false
+                    beforeGravityDelayRemaining = 0f
+                    applyGravityOrFinish()
                 }
                 return
             }
@@ -514,14 +552,7 @@ class Board(
                     if (pendingMatchGroups.isNotEmpty()) {
                         matchRemoveDelay = MATCH_GROUP_REMOVE_INTERVAL
                     } else {
-                        val moved = applyGravityAnimated()
-
-                        if (moved) {
-                            gravityAnimating = true
-                            gravityAnimationRemaining = GRAVITY_ANIMATION_DURATION
-                        } else {
-                            finishAfterGravityAnimation()
-                        }
+                        startBeforeGravityDelay()
                     }
                 }
             }
