@@ -67,6 +67,13 @@ class Board(
     private var gravityAnimationRemaining = 10f
     private var waitingNextCascade = false
     private var nextCascadeDelayRemaining = 3f
+
+    private var chainCount = 0
+    private val removedDropCounts = DropType.entries
+        .associateWith { 0 }
+        .toMutableMap()
+    private var attackResultReady = false
+
     private data class MatchGroup(
         val type: DropType,
         val cells: MutableList<Pair<Int, Int>> = mutableListOf(),
@@ -157,6 +164,22 @@ class Board(
         return drops[row][col]
     }
 
+    fun getChainCount(): Int {
+        return chainCount
+    }
+
+    fun getRemovedDropCount(type: DropType): Int {
+        return removedDropCounts[type] ?: 0
+    }
+
+    fun getRemovedDropCounts(): Map<DropType, Int> {
+        return removedDropCounts.toMap()
+    }
+
+    fun isAttackResultReady(): Boolean {
+        return attackResultReady
+    }
+
     private fun charToDropType(ch: Char): DropType {
         return when (ch) {
             'R' -> DropType.FIRE
@@ -207,6 +230,7 @@ class Board(
         val drop = drops[row][col] ?: return
 
         clearHold()
+        resetResolveResult()
 
         holdingDrop = drop
         holdingRow = row
@@ -233,6 +257,16 @@ class Board(
         holdingCol = -1
         timerStarted = false
         remainingHoldTime = HOLD_LIMIT_SECONDS
+    }
+
+    private fun resetResolveResult() {
+        chainCount = 0
+
+        for (type in DropType.entries) {
+            removedDropCounts[type] = 0
+        }
+
+        attackResultReady = false
     }
 
     private fun moveHoldingDrop(screenX: Float, screenY: Float) {
@@ -396,12 +430,25 @@ class Board(
         return groups
     }
 
+    private fun recordRemovedMatchGroup(type: DropType, removedCount: Int) {
+        if (removedCount <= 0) return
+
+        chainCount += 1
+        removedDropCounts[type] = (removedDropCounts[type] ?: 0) + removedCount
+        attackResultReady = false
+    }
+
     private fun removeMatchGroup(group: MatchGroup) {
+        var removedCount = 0
+
         for ((row, col) in group.cells) {
             val drop = drops[row][col] ?: continue
             world.remove(drop, Layer.BOARD)
             drops[row][col] = null
+            removedCount += 1
         }
+
+        recordRemovedMatchGroup(group.type, removedCount)
     }
 
     private fun applyGravityAnimated(): Boolean {
@@ -479,6 +526,7 @@ class Board(
             matchRemoveDelay = 0f
             waitingNextCascade = false
             nextCascadeDelayRemaining = 0f
+            attackResultReady = chainCount > 0
         }
     }
 
