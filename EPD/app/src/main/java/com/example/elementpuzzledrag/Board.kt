@@ -430,12 +430,42 @@ class Board(
         return groups
     }
 
-    private fun recordRemovedMatchGroup(type: DropType, removedCount: Int) {
+    private fun getMatchGroupCenter(group: MatchGroup): Pair<Float, Float> {
+        var sumX = 0f
+        var sumY = 0f
+
+        for ((row, col) in group.cells) {
+            val (centerX, centerY) = getCellCenter(row, col)
+            sumX += centerX
+            sumY += centerY
+        }
+
+        val count = group.cells.size.coerceAtLeast(1)
+        return sumX / count to sumY / count
+    }
+
+    private fun showChainText(group: MatchGroup, chainNumber: Int) {
+        val (centerX, centerY) = getMatchGroupCenter(group)
+
+        val chainText = ChainText.get(
+            gctx = gctx,
+            world = world,
+            centerX = centerX,
+            centerY = centerY,
+            chainNumber = chainNumber,
+        )
+
+        world.add(chainText, Layer.OVERLAY)
+    }
+
+    private fun recordRemovedMatchGroup(group: MatchGroup, removedCount: Int) {
         if (removedCount <= 0) return
 
         chainCount += 1
-        removedDropCounts[type] = (removedDropCounts[type] ?: 0) + removedCount
+        removedDropCounts[group.type] = (removedDropCounts[group.type] ?: 0) + removedCount
         attackResultReady = false
+
+        showChainText(group, chainCount)
     }
 
     private fun removeMatchGroup(group: MatchGroup) {
@@ -448,7 +478,7 @@ class Board(
             removedCount += 1
         }
 
-        recordRemovedMatchGroup(group.type, removedCount)
+        recordRemovedMatchGroup(group, removedCount)
     }
 
     private fun applyGravityAnimated(): Boolean {
