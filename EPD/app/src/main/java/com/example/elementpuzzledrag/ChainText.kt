@@ -12,8 +12,8 @@ import kotlin.math.roundToInt
 
 class ChainText private constructor() : IGameObject, IRecyclable {
     companion object {
-        private const val TEXT_WIDTH = 300f
-        private const val TEXT_HEIGHT = 100f
+        private const val TEXT_WIDTH = 200f
+        private const val TEXT_HEIGHT = 70f
         private const val JUMP_HEIGHT = 100f
         private const val DURATION = 0.5f
 

@@ -10,7 +10,7 @@ class Monster(
     val attribute: DropType,
     val attackPower: Int,
     var hp: Int,
-    var remainingAttackTurns: Int,
+    var MaxremainingAttackTurns: Int,
     resId: Int,
     centerX: Float,
     centerY: Float,
@@ -19,6 +19,7 @@ class Monster(
 ) : Sprite(gameContext, resId) {
 
     val maxHp: Int = hp
+    var remainingAttackTurns = MaxremainingAttackTurns
     private fun attackTurnResId(): Int {
         return when (remainingAttackTurns.coerceIn(0, 10)) {
             0 -> R.mipmap.in0

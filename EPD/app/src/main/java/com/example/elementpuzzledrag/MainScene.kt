@@ -107,10 +107,38 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 attribute = DropType.FIRE,
                 attackPower = 100,
                 hp = 500,
-                remainingAttackTurns = 3,
+                MaxremainingAttackTurns = 3,
                 resId = R.mipmap.m_firemonmus,
                 centerX = screenW / 2f,
                 centerY = stageTop + stageHeight / 2f,
+            ),
+            Layer.MONSTER,
+        )
+
+        world.add(
+            Monster(
+                gameContext = gctx,
+                attribute = DropType.LEAF,
+                attackPower = 100,
+                hp = 500,
+                MaxremainingAttackTurns = 3,
+                resId = R.mipmap.m_leafmonmus,
+                centerX = screenW / 2f - 300,
+                centerY = stageTop + stageHeight / 2f + 100,
+            ),
+            Layer.MONSTER,
+        )
+
+        world.add(
+            Monster(
+                gameContext = gctx,
+                attribute = DropType.WATER,
+                attackPower = 100,
+                hp = 500,
+                MaxremainingAttackTurns = 3,
+                resId = R.mipmap.m_watermonmus,
+                centerX = screenW / 2f + 300,
+                centerY = stageTop + stageHeight / 2f + 100,
             ),
             Layer.MONSTER,
         )
