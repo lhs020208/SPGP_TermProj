@@ -36,6 +36,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
 
     private lateinit var board: Board
 
+    private val monsters = mutableListOf<Monster>()
+    private var targetedMonster: Monster? = null
+    private var targetMarker: TargetMarker? = null
+
     init {
         val screenW = gctx.metrics.width      // 900
         val screenH = gctx.metrics.height     // 1600
@@ -117,7 +121,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             Layer.PUZZLE_BG,
         )
 
-        world.add(
+        addMonster(
             Monster(
                 gameContext = gctx,
                 attribute = DropType.FIRE,
@@ -128,11 +132,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 resId = R.mipmap.m_firemonmus,
                 centerX = screenW / 2f,
                 centerY = stageTop + stageHeight / 2f,
-            ),
-            Layer.MONSTER,
+            )
         )
 
-        world.add(
+        addMonster(
             Monster(
                 gameContext = gctx,
                 attribute = DropType.LEAF,
@@ -143,11 +146,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 resId = R.mipmap.m_leafmonmus,
                 centerX = screenW / 2f - 300,
                 centerY = stageTop + stageHeight / 2f + 100,
-            ),
-            Layer.MONSTER,
+            )
         )
 
-        world.add(
+        addMonster(
             Monster(
                 gameContext = gctx,
                 attribute = DropType.WATER,
@@ -158,14 +160,80 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 resId = R.mipmap.m_watermonmus,
                 centerX = screenW / 2f + 300,
                 centerY = stageTop + stageHeight / 2f + 100,
-            ),
-            Layer.MONSTER,
+            )
         )
+
         board = Board(gctx, world)
         world.add(board, Layer.OVERLAY)
     }
 
+    private fun addMonster(monster: Monster) {
+        monsters.add(monster)
+        world.add(monster, Layer.MONSTER)
+    }
+
+    private fun removeMonster(monster: Monster) {
+        if (targetedMonster === monster) {
+            clearAttackTarget()
+        }
+
+        monsters.remove(monster)
+        world.remove(monster, Layer.MONSTER)
+    }
+
+    private fun getAttackTarget(): Monster? {
+        return targetedMonster
+    }
+
+    private fun clearAttackTarget() {
+        targetMarker?.let { marker ->
+            world.remove(marker, Layer.MONSTER)
+        }
+
+        targetMarker = null
+        targetedMonster = null
+    }
+
+    private fun setAttackTarget(monster: Monster) {
+        clearAttackTarget()
+
+        targetedMonster = monster
+
+        val marker = TargetMarker(gctx, monster)
+        targetMarker = marker
+        world.add(marker, Layer.MONSTER)
+    }
+
+    private fun toggleAttackTarget(monster: Monster) {
+        if (targetedMonster === monster) {
+            clearAttackTarget()
+        } else {
+            setAttackTarget(monster)
+        }
+    }
+
+    private fun findTouchedMonster(screenX: Float, screenY: Float): Monster? {
+        val pt = gctx.metrics.fromScreen(screenX, screenY)
+
+        for (monster in monsters.asReversed()) {
+            if (monster.containsWorldPoint(pt.x, pt.y)) {
+                return monster
+            }
+        }
+
+        return null
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            val touchedMonster = findTouchedMonster(event.x, event.y)
+
+            if (touchedMonster != null) {
+                toggleAttackTarget(touchedMonster)
+                return true
+            }
+        }
+
         return board.onTouchEvent(event)
     }
 }

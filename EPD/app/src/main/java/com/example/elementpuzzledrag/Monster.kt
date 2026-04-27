@@ -133,6 +133,14 @@ class Monster(
         return collisionRect.contains(px, py)
     }
 
+    fun getTargetMarkerCenter(markerHeight: Float, markerGap: Float): Pair<Float, Float> {
+        val hpGaugeBottom = y + height / 2f + hpGaugeSize.gap + hpGaugeSize.barHeight
+        val markerCenterX = x
+        val markerCenterY = hpGaugeBottom + markerGap + markerHeight / 2f
+
+        return markerCenterX to markerCenterY
+    }
+
     private fun drawHpGauge(canvas: Canvas) {
         val barWidth = hpGaugeSize.barWidth
         val barHeight = hpGaugeSize.barHeight
