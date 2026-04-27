@@ -53,6 +53,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         val puzzleTop = hpTop + hpHeight
         val puzzleHeight = 7.5f * unitH
 
+        val typeGuideMargin = 20f
+        val typeGuideWidth = 130f
+        val typeGuideHeight = typeGuideWidth * 440f / 327f
+
         world.add(
             UiSprite(
                 gctx,
@@ -73,6 +77,18 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 elementTop,
                 screenW,
                 elementHeight,
+            ),
+            Layer.HUD,
+        )
+
+        world.add(
+            UiSprite(
+                gctx,
+                R.mipmap.type,
+                typeGuideMargin,
+                typeGuideMargin,
+                typeGuideWidth,
+                typeGuideHeight,
             ),
             Layer.HUD,
         )
