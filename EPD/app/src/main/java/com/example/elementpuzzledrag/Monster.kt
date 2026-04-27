@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import kr.ac.tukorea.ge.spgp2026.a2dg.objects.Sprite
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
+import kr.ac.tukorea.ge.spgp2026.a2dg.objects.IBoxCollidable
 
 class Monster(
     private val gameContext: GameContext,
@@ -20,7 +21,7 @@ class Monster(
     centerY: Float,
     drawWidth: Float? = null,
     drawHeight: Float? = null,
-) : Sprite(gameContext, resId) {
+) : Sprite(gameContext, resId), IBoxCollidable {
 
     enum class HpGaugeSize(
         val barWidth: Float,
@@ -45,15 +46,16 @@ class Monster(
     }
 
     companion object {
+        private const val COLLISION_INSET_RATIO = 0.05f
+
         private val HP_BAR_FG_COLOR = Color.rgb(0xE5, 0x9E, 0xDD)
         private val HP_BAR_BG_COLOR = Color.rgb(0x50, 0x16, 0x4A)
     }
 
     var hp: Int = hp.coerceIn(0, maxHp)
         private set
-
     var remainingAttackTurns = MaxremainingAttackTurns.coerceAtLeast(0)
-
+    override val collisionRect = RectF()
     private val hpBarBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
         color = HP_BAR_BG_COLOR
@@ -93,6 +95,7 @@ class Monster(
 
         setSize(widthToUse, heightToUse)
         setCenter(centerX, centerY)
+        updateCollisionRect()
     }
 
     fun takeDamage(amount: Int) {
@@ -117,6 +120,17 @@ class Monster(
 
     fun isDead(): Boolean {
         return hp <= 0
+    }
+
+    private fun updateCollisionRect() {
+        collisionRect.set(dstRect)
+
+        val inset = kotlin.math.min(width, height) * COLLISION_INSET_RATIO
+        collisionRect.inset(inset, inset)
+    }
+
+    fun containsWorldPoint(px: Float, py: Float): Boolean {
+        return collisionRect.contains(px, py)
     }
 
     private fun drawHpGauge(canvas: Canvas) {
