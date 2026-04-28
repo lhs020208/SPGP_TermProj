@@ -4,12 +4,26 @@ import kr.ac.tukorea.ge.spgp2026.a2dg.scene.Scene
 import kr.ac.tukorea.ge.spgp2026.a2dg.scene.World
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
 import android.view.MotionEvent
+import kotlin.math.roundToInt
+import kotlin.random.Random
 
 class MainScene(gctx: GameContext) : Scene(gctx) {
 
     companion object {
         private const val SHOW_HIDDEN_DROPS_FOR_DEBUG = false
+
+        private const val PLAYER_ATTACK_BASE_CONSTANT = 10f
+        private const val DEFAULT_SKILL_MULTIPLIER = 1f
+
+        private val BASIC_PLAYER_ATTACK_ORDER = listOf(
+            DropType.FIRE,
+            DropType.WATER,
+            DropType.LEAF,
+            DropType.LIGHT,
+            DropType.DARK,
+        )
     }
+
     override val world = World(
         if (SHOW_HIDDEN_DROPS_FOR_DEBUG) {
             arrayOf(
@@ -222,6 +236,161 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         }
 
         return null
+    }
+
+
+
+    private fun performPlayerAttacks(result: PlayerAttackResult) {
+        if (result.chainCount <= 0) return
+        if (monsters.isEmpty()) return
+
+        val attackOrder = getPlayerAttackOrder()
+
+        for (attackAttribute in attackOrder) {
+            val target = chooseAttackTargetFor(attackAttribute) ?: continue
+
+            val removedDropCount = result.removedDropCounts[attackAttribute] ?: 0
+            val damage = calculatePlayerDamage(
+                attackAttribute = attackAttribute,
+                target = target,
+                removedDropCount = removedDropCount,
+                chainCount = result.chainCount,
+            )
+
+            applyPlayerDamage(
+                attackAttribute = attackAttribute,
+                target = target,
+                damage = damage,
+            )
+        }
+    }
+
+    private fun getPlayerAttackOrder(): List<DropType> {
+        val target = targetedMonster ?: return BASIC_PLAYER_ATTACK_ORDER
+
+        val bestAttribute = BASIC_PLAYER_ATTACK_ORDER.firstOrNull { attackAttribute ->
+            getAttributeMultiplier(
+                attackAttribute = attackAttribute,
+                defenseAttribute = target.attribute,
+            ) > 1f
+        } ?: return BASIC_PLAYER_ATTACK_ORDER
+
+        return listOf(bestAttribute) + BASIC_PLAYER_ATTACK_ORDER.filter { it != bestAttribute }
+    }
+
+    private fun chooseAttackTargetFor(attackAttribute: DropType): Monster? {
+        targetedMonster?.let { target ->
+            // TODO 7번 확장:
+            // 나중에는 target.isDead()이면 랜덤 몬스터로 바꾸는 처리를 이 위치에 넣으면 된다.
+            return target
+        }
+
+        return chooseRandomMonsterFor(attackAttribute)
+    }
+
+    private fun chooseRandomMonsterFor(attackAttribute: DropType): Monster? {
+        val candidates = getAttackableMonsters()
+        if (candidates.isEmpty()) return null
+
+        val randomIndex = Random.nextInt(candidates.size)
+        return candidates[randomIndex]
+    }
+
+    private fun getAttackableMonsters(): List<Monster> {
+        return monsters.filter { !it.isDead() }
+    }
+
+    private fun calculatePlayerDamage(
+        attackAttribute: DropType,
+        target: Monster,
+        removedDropCount: Int,
+        chainCount: Int,
+    ): Int {
+        if (removedDropCount <= 0) return 0
+        if (chainCount <= 0) return 0
+
+        val rawDamage =
+            removedDropCount *
+                    chainCount *
+                    PLAYER_ATTACK_BASE_CONSTANT *
+                    getAttributeMultiplier(
+                        attackAttribute = attackAttribute,
+                        defenseAttribute = target.attribute,
+                    ) *
+                    getSkillMultiplier(attackAttribute)
+
+        return rawDamage.roundToInt().coerceAtLeast(0)
+    }
+
+    private fun getAttributeMultiplier(
+        attackAttribute: DropType,
+        defenseAttribute: DropType,
+    ): Float {
+        if (isStrongAgainst(attackAttribute, defenseAttribute)) {
+            return 2f
+        }
+
+        if (isWeakAgainst(attackAttribute, defenseAttribute)) {
+            return 0.5f
+        }
+
+        return 1f
+    }
+
+    private fun isStrongAgainst(
+        attackAttribute: DropType,
+        defenseAttribute: DropType,
+    ): Boolean {
+        return when (attackAttribute) {
+            DropType.FIRE -> defenseAttribute == DropType.LEAF
+            DropType.WATER -> defenseAttribute == DropType.FIRE
+            DropType.LEAF -> defenseAttribute == DropType.WATER
+            DropType.LIGHT -> defenseAttribute == DropType.DARK
+            DropType.DARK -> defenseAttribute == DropType.LIGHT
+            DropType.HP -> false
+        }
+    }
+
+    private fun isWeakAgainst(
+        attackAttribute: DropType,
+        defenseAttribute: DropType,
+    ): Boolean {
+        return isStrongAgainst(
+            attackAttribute = defenseAttribute,
+            defenseAttribute = attackAttribute,
+        )
+    }
+
+    private fun getSkillMultiplier(attackAttribute: DropType): Float {
+        // TODO:
+        // 나중에 스킬이 추가되면 여기서 속성별 스킬 배율을 반환한다.
+        // 예: 불 속성 강화 스킬 사용 중이면 DropType.FIRE일 때 1.5f 반환.
+        return DEFAULT_SKILL_MULTIPLIER
+    }
+
+    private fun applyPlayerDamage(
+        attackAttribute: DropType,
+        target: Monster,
+        damage: Int,
+    ) {
+        if (damage <= 0) return
+
+        // TODO 8번 확장:
+        // 나중에는 damage가 target.hp보다 크면 초과 대미지를 계산해서
+        // 다른 랜덤 몬스터에게 이어서 적용하는 처리를 이 함수 안에 넣으면 된다.
+        //
+        // TODO 9번 확장:
+        // 마지막 남은 몬스터인 경우에는 초과 대미지 분산 없이
+        // 모든 공격을 그대로 받게 하는 예외도 여기서 처리하면 된다.
+
+        target.takeDamage(damage)
+    }
+
+    override fun update(gctx: GameContext) {
+        super.update(gctx)
+
+        val attackResult = board.consumeAttackResult() ?: return
+        performPlayerAttacks(attackResult)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {

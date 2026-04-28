@@ -8,6 +8,11 @@ import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
 import kr.ac.tukorea.ge.spgp2026.a2dg.util.Gauge
 import kotlin.random.Random
 
+data class PlayerAttackResult(
+    val chainCount: Int,
+    val removedDropCounts: Map<DropType, Int>,
+)
+
 class Board(
     private val gctx: GameContext,
     private val world: World<Layer>,
@@ -178,6 +183,17 @@ class Board(
 
     fun isAttackResultReady(): Boolean {
         return attackResultReady
+    }
+
+    fun consumeAttackResult(): PlayerAttackResult? {
+        if (!attackResultReady) return null
+
+        attackResultReady = false
+
+        return PlayerAttackResult(
+            chainCount = chainCount,
+            removedDropCounts = removedDropCounts.toMap(),
+        )
     }
 
     private fun charToDropType(ch: Char): DropType {
