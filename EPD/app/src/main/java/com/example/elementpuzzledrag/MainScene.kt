@@ -54,6 +54,8 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     private var targetedMonster: Monster? = null
     private var targetMarker: TargetMarker? = null
 
+    private val elementSlots = mutableListOf<ElementSlot>()
+
     init {
         val screenW = gctx.metrics.width      // 900
         val screenH = gctx.metrics.height     // 1600
@@ -87,16 +89,79 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             Layer.STAGE,
         )
 
-        world.add(
-            UiSprite(
-                gctx,
-                R.mipmap.i_element,
-                0f,
-                elementTop,
-                screenW,
-                elementHeight,
-            ),
-            Layer.HUD,
+        val elementSlotWidth = screenW / 6f
+        val elementSlotHeight = elementHeight
+
+        addElementSlot(
+            ElementSlot(
+                gctx = gctx,
+                elementType = DropType.FIRE,
+                resId = R.mipmap.i_fire,
+                left = 0f * elementSlotWidth,
+                top = elementTop,
+                width = elementSlotWidth,
+                height = elementSlotHeight,
+            )
+        )
+
+        addElementSlot(
+            ElementSlot(
+                gctx = gctx,
+                elementType = DropType.WATER,
+                resId = R.mipmap.i_water,
+                left = 1f * elementSlotWidth,
+                top = elementTop,
+                width = elementSlotWidth,
+                height = elementSlotHeight,
+            )
+        )
+
+        addElementSlot(
+            ElementSlot(
+                gctx = gctx,
+                elementType = DropType.LEAF,
+                resId = R.mipmap.i_leaf,
+                left = 2f * elementSlotWidth,
+                top = elementTop,
+                width = elementSlotWidth,
+                height = elementSlotHeight,
+            )
+        )
+
+        addElementSlot(
+            ElementSlot(
+                gctx = gctx,
+                elementType = DropType.LIGHT,
+                resId = R.mipmap.i_light,
+                left = 3f * elementSlotWidth,
+                top = elementTop,
+                width = elementSlotWidth,
+                height = elementSlotHeight,
+            )
+        )
+
+        addElementSlot(
+            ElementSlot(
+                gctx = gctx,
+                elementType = DropType.DARK,
+                resId = R.mipmap.i_dark,
+                left = 4f * elementSlotWidth,
+                top = elementTop,
+                width = elementSlotWidth,
+                height = elementSlotHeight,
+            )
+        )
+
+        addElementSlot(
+            ElementSlot(
+                gctx = gctx,
+                elementType = DropType.HP,
+                resId = R.mipmap.i_hp,
+                left = 5f * elementSlotWidth,
+                top = elementTop,
+                width = elementSlotWidth,
+                height = elementSlotHeight,
+            )
         )
 
         world.add(
@@ -184,6 +249,11 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     private fun addMonster(monster: Monster) {
         monsters.add(monster)
         world.add(monster, Layer.MONSTER)
+    }
+
+    private fun addElementSlot(slot: ElementSlot) {
+        elementSlots.add(slot)
+        world.add(slot, Layer.HUD)
     }
 
     private fun removeMonster(monster: Monster) {
