@@ -208,6 +208,20 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         targetedMonster = null
     }
 
+    private fun clearCurrentStageMonsters() {
+        clearAttackTarget()
+
+        for (monster in monsters.toList()) {
+            world.remove(monster, Layer.MONSTER)
+        }
+
+        monsters.clear()
+    }
+
+    private fun onStageCleared() {
+        clearCurrentStageMonsters()
+    }
+
     private fun setAttackTarget(monster: Monster) {
         clearAttackTarget()
 
@@ -246,8 +260,21 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
 
         val attackOrder = getPlayerAttackOrder()
 
+        var finalStageTarget: Monster? = null
+
         for (attackAttribute in attackOrder) {
-            val target = chooseAttackTargetFor(attackAttribute) ?: continue
+            if (finalStageTarget == null) {
+                val aliveMonsters = getAliveMonsters()
+
+                if (aliveMonsters.size == 1) {
+                    finalStageTarget = aliveMonsters.first()
+                }
+            }
+
+            val target = chooseAttackTargetFor(
+                attackAttribute = attackAttribute,
+                finalStageTarget = finalStageTarget,
+            ) ?: break
 
             val removedDropCount = result.removedDropCounts[attackAttribute] ?: 0
             val damage = calculatePlayerDamage(
@@ -263,10 +290,15 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 damage = damage,
             )
         }
+
+        if (finalStageTarget?.isDead() == true) {
+            onStageCleared()
+        }
     }
 
     private fun getPlayerAttackOrder(): List<DropType> {
-        val target = targetedMonster ?: return BASIC_PLAYER_ATTACK_ORDER
+        val target = targetedMonster?.takeUnless { it.isDead() }
+            ?: return BASIC_PLAYER_ATTACK_ORDER
 
         val bestAttribute = BASIC_PLAYER_ATTACK_ORDER.firstOrNull { attackAttribute ->
             getAttributeMultiplier(
@@ -278,25 +310,34 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         return listOf(bestAttribute) + BASIC_PLAYER_ATTACK_ORDER.filter { it != bestAttribute }
     }
 
-    private fun chooseAttackTargetFor(attackAttribute: DropType): Monster? {
+    private fun chooseAttackTargetFor(
+        attackAttribute: DropType,
+        finalStageTarget: Monster?,
+    ): Monster? {
+        if (finalStageTarget != null) {
+            return finalStageTarget
+        }
+
         targetedMonster?.let { target ->
-            // TODO 7번 확장:
-            // 나중에는 target.isDead()이면 랜덤 몬스터로 바꾸는 처리를 이 위치에 넣으면 된다.
-            return target
+            if (!target.isDead()) {
+                return target
+            }
+
+            clearAttackTarget()
         }
 
         return chooseRandomMonsterFor(attackAttribute)
     }
 
     private fun chooseRandomMonsterFor(attackAttribute: DropType): Monster? {
-        val candidates = getAttackableMonsters()
+        val candidates = getAliveMonsters()
         if (candidates.isEmpty()) return null
 
         val randomIndex = Random.nextInt(candidates.size)
         return candidates[randomIndex]
     }
 
-    private fun getAttackableMonsters(): List<Monster> {
+    private fun getAliveMonsters(): List<Monster> {
         return monsters.filter { !it.isDead() }
     }
 
