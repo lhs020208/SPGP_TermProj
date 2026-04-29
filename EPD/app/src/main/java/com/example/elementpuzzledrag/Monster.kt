@@ -48,7 +48,6 @@ class Monster(
     companion object {
         private const val COLLISION_INSET_RATIO = 0.05f
 
-        private val HP_BAR_FG_COLOR = Color.rgb(0xE5, 0x9E, 0xDD)
         private val HP_BAR_BG_COLOR = Color.rgb(0x50, 0x16, 0x4A)
     }
 
@@ -63,7 +62,6 @@ class Monster(
 
     private val hpBarFgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = HP_BAR_FG_COLOR
     }
 
     private fun attackTurnResId(): Int {
@@ -141,6 +139,17 @@ class Monster(
         return markerCenterX to markerCenterY
     }
 
+    private fun hpBarFgColor(): Int {
+        return when (attribute) {
+            DropType.FIRE -> Color.rgb(0xC0, 0x00, 0x00)
+            DropType.WATER -> Color.rgb(0x00, 0x00, 0xFF)
+            DropType.LEAF -> Color.rgb(0x92, 0xD0, 0x50)
+            DropType.LIGHT -> Color.rgb(0xFF, 0xFF, 0x00)
+            DropType.DARK -> Color.rgb(0x70, 0x30, 0xA0)
+            DropType.HP -> Color.rgb(0xE5, 0x9E, 0xDD)
+        }
+    }
+
     private fun drawHpGauge(canvas: Canvas) {
         val barWidth = hpGaugeSize.barWidth
         val barHeight = hpGaugeSize.barHeight
@@ -168,6 +177,7 @@ class Monster(
             left + barWidth * hpRatio,
             bottom,
         )
+        hpBarFgPaint.color = hpBarFgColor()
         canvas.drawRect(fgRect, hpBarFgPaint)
     }
 
