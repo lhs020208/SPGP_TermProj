@@ -16,6 +16,8 @@ data class PlayerAttackResult(
 class Board(
     private val gctx: GameContext,
     private val world: World<Layer>,
+    private val onPuzzleDragStarted: () -> Unit = {},
+    private val onPuzzleTurnFinishedWithoutAttack: () -> Unit = {},
 ) : IGameObject {
 
     companion object {
@@ -275,6 +277,22 @@ class Board(
         remainingHoldTime = HOLD_LIMIT_SECONDS
     }
 
+    private fun finishHoldAndResolveIfNeeded() {
+        val shouldResolve = swappedDuringHold
+
+        clearHold()
+
+        if (shouldResolve) {
+            val resolvingStarted = startResolveMatches()
+
+            if (!resolvingStarted) {
+                onPuzzleTurnFinishedWithoutAttack()
+            }
+        }
+
+        swappedDuringHold = false
+    }
+
     private fun resetResolveResult() {
         chainCount = 0
 
@@ -325,6 +343,7 @@ class Board(
         if (!timerStarted) {
             timerStarted = true
             remainingHoldTime = HOLD_LIMIT_SECONDS
+            onPuzzleDragStarted()
         }
     }
 
@@ -589,8 +608,8 @@ class Board(
         return true
     }
 
-    private fun startResolveMatches() {
-        if (!preparePendingMatchGroups()) return
+    private fun startResolveMatches(): Boolean {
+        if (!preparePendingMatchGroups()) return false
 
         resolvingMatches = true
 
@@ -602,6 +621,8 @@ class Board(
 
         waitingNextCascade = false
         nextCascadeDelayRemaining = 0f
+
+        return true
     }
 
     override fun update(gctx: GameContext) {
@@ -658,15 +679,7 @@ class Board(
         remainingHoldTime -= gctx.frameTime
         if (remainingHoldTime <= 0f) {
             remainingHoldTime = 0f
-
-            val shouldResolve = swappedDuringHold
-            clearHold()
-
-            if (shouldResolve) {
-                startResolveMatches()
-            }
-
-            swappedDuringHold = false
+            finishHoldAndResolveIfNeeded()
         }
     }
 
@@ -695,15 +708,7 @@ class Board(
 
             android.view.MotionEvent.ACTION_UP,
             android.view.MotionEvent.ACTION_CANCEL -> {
-                val shouldResolve = swappedDuringHold
-
-                clearHold()
-
-                if (shouldResolve) {
-                    startResolveMatches()
-                }
-
-                swappedDuringHold = false
+                finishHoldAndResolveIfNeeded()
                 return true
             }
 

@@ -53,6 +53,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     private val monsters = mutableListOf<Monster>()
     private var targetedMonster: Monster? = null
     private var targetMarker: TargetMarker? = null
+    private var attackTargetLocked = false
 
     private val elementSlots = mutableListOf<ElementSlot>()
 
@@ -242,7 +243,16 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             )
         )
 
-        board = Board(gctx, world)
+        board = Board(
+            gctx = gctx,
+            world = world,
+            onPuzzleDragStarted = {
+                attackTargetLocked = true
+            },
+            onPuzzleTurnFinishedWithoutAttack = {
+                attackTargetLocked = false
+            },
+        )
         world.add(board, Layer.OVERLAY)
     }
 
@@ -501,7 +511,12 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         super.update(gctx)
 
         val attackResult = board.consumeAttackResult() ?: return
-        performPlayerAttacks(attackResult)
+
+        try {
+            performPlayerAttacks(attackResult)
+        } finally {
+            attackTargetLocked = false
+        }
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -509,7 +524,9 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             val touchedMonster = findTouchedMonster(event.x, event.y)
 
             if (touchedMonster != null) {
-                toggleAttackTarget(touchedMonster)
+                if (!attackTargetLocked) {
+                    toggleAttackTarget(touchedMonster)
+                }
                 return true
             }
         }
