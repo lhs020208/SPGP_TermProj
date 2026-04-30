@@ -5,21 +5,26 @@ import kr.ac.tukorea.ge.spgp2026.a2dg.objects.IBoxCollidable
 import kr.ac.tukorea.ge.spgp2026.a2dg.objects.Sprite
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
 
-class ElementSlot(
+enum class SkillType {
+    ATTACK_UP,
+    DROP_CHANGE,
+}
+
+class SkillIcon(
     gctx: GameContext,
-    val elementType: DropType,
+    val skillType: SkillType,
     resId: Int,
-    val slotLeft: Float,
-    val slotTop: Float,
-    val slotWidth: Float,
-    val slotHeight: Float,
+    left: Float,
+    top: Float,
+    width: Float,
+    height: Float,
 ) : Sprite(gctx, resId), IBoxCollidable {
 
     override val collisionRect = RectF()
 
     init {
-        setSize(slotWidth, slotHeight)
-        setCenter(slotLeft + slotWidth / 2f, slotTop + slotHeight / 2f)
+        setSize(width, height)
+        setCenter(left + width / 2f, top + height / 2f)
         updateCollisionRect()
     }
 

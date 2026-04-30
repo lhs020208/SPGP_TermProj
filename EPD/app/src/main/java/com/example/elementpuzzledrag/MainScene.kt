@@ -34,6 +34,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 Layer.HOLDING,
                 Layer.OVERLAY,
                 Layer.MONSTER,
+                Layer.SKILL_UI,
             )
         } else {
             arrayOf(
@@ -44,6 +45,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 Layer.HOLDING,
                 Layer.OVERLAY,
                 Layer.MONSTER,
+                Layer.SKILL_UI,
             )
         }
     )
@@ -56,6 +58,8 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     private var attackTargetLocked = false
 
     private val elementSlots = mutableListOf<ElementSlot>()
+    private val activeSkillIcons = mutableListOf<SkillIcon>()
+    private var activeSkillElementType: DropType? = null
 
     init {
         val screenW = gctx.metrics.width      // 900
@@ -98,10 +102,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 gctx = gctx,
                 elementType = DropType.FIRE,
                 resId = R.mipmap.i_fire,
-                left = 0f * elementSlotWidth,
-                top = elementTop,
-                width = elementSlotWidth,
-                height = elementSlotHeight,
+                slotLeft = 0f * elementSlotWidth,
+                slotTop = elementTop,
+                slotWidth = elementSlotWidth,
+                slotHeight = elementSlotHeight,
             )
         )
 
@@ -110,10 +114,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 gctx = gctx,
                 elementType = DropType.WATER,
                 resId = R.mipmap.i_water,
-                left = 1f * elementSlotWidth,
-                top = elementTop,
-                width = elementSlotWidth,
-                height = elementSlotHeight,
+                slotLeft = 1f * elementSlotWidth,
+                slotTop = elementTop,
+                slotWidth = elementSlotWidth,
+                slotHeight = elementSlotHeight,
             )
         )
 
@@ -122,10 +126,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 gctx = gctx,
                 elementType = DropType.LEAF,
                 resId = R.mipmap.i_leaf,
-                left = 2f * elementSlotWidth,
-                top = elementTop,
-                width = elementSlotWidth,
-                height = elementSlotHeight,
+                slotLeft = 2f * elementSlotWidth,
+                slotTop = elementTop,
+                slotWidth = elementSlotWidth,
+                slotHeight = elementSlotHeight,
             )
         )
 
@@ -134,10 +138,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 gctx = gctx,
                 elementType = DropType.LIGHT,
                 resId = R.mipmap.i_light,
-                left = 3f * elementSlotWidth,
-                top = elementTop,
-                width = elementSlotWidth,
-                height = elementSlotHeight,
+                slotLeft = 3f * elementSlotWidth,
+                slotTop = elementTop,
+                slotWidth = elementSlotWidth,
+                slotHeight = elementSlotHeight,
             )
         )
 
@@ -146,10 +150,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 gctx = gctx,
                 elementType = DropType.DARK,
                 resId = R.mipmap.i_dark,
-                left = 4f * elementSlotWidth,
-                top = elementTop,
-                width = elementSlotWidth,
-                height = elementSlotHeight,
+                slotLeft = 4f * elementSlotWidth,
+                slotTop = elementTop,
+                slotWidth = elementSlotWidth,
+                slotHeight = elementSlotHeight,
             )
         )
 
@@ -158,10 +162,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 gctx = gctx,
                 elementType = DropType.HP,
                 resId = R.mipmap.i_hp,
-                left = 5f * elementSlotWidth,
-                top = elementTop,
-                width = elementSlotWidth,
-                height = elementSlotHeight,
+                slotLeft = 5f * elementSlotWidth,
+                slotTop = elementTop,
+                slotWidth = elementSlotWidth,
+                slotHeight = elementSlotHeight,
             )
         )
 
@@ -247,6 +251,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             gctx = gctx,
             world = world,
             onPuzzleDragStarted = {
+                clearSkillIcons()
                 attackTargetLocked = true
             },
             onPuzzleTurnFinishedWithoutAttack = {
@@ -264,6 +269,128 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     private fun addElementSlot(slot: ElementSlot) {
         elementSlots.add(slot)
         world.add(slot, Layer.HUD)
+    }
+
+    private fun isSkillElementType(type: DropType): Boolean {
+        return when (type) {
+            DropType.FIRE,
+            DropType.WATER,
+            DropType.LEAF,
+            DropType.LIGHT,
+            DropType.DARK -> true
+
+            DropType.HP -> false
+        }
+    }
+
+    private fun findTouchedElementSlot(screenX: Float, screenY: Float): ElementSlot? {
+        val pt = gctx.metrics.fromScreen(screenX, screenY)
+
+        for (slot in elementSlots.asReversed()) {
+            if (slot.containsWorldPoint(pt.x, pt.y)) {
+                return slot
+            }
+        }
+
+        return null
+    }
+
+    private fun showSkillIconsFor(slot: ElementSlot) {
+        clearSkillIcons()
+
+        if (!isSkillElementType(slot.elementType)) return
+
+        activeSkillElementType = slot.elementType
+
+        val iconWidth = slot.slotWidth
+        val iconHeight = slot.slotHeight
+        val iconLeft = slot.slotLeft
+
+        val attackUpTop = slot.slotTop - iconHeight * 2f
+        val dropChangeTop = slot.slotTop - iconHeight
+
+        val attackUpIcon = SkillIcon(
+            gctx = gctx,
+            skillType = SkillType.ATTACK_UP,
+            resId = R.mipmap.skill_attackup,
+            left = iconLeft,
+            top = attackUpTop,
+            width = iconWidth,
+            height = iconHeight,
+        )
+
+        val dropChangeIcon = SkillIcon(
+            gctx = gctx,
+            skillType = SkillType.DROP_CHANGE,
+            resId = R.mipmap.skill_dropchange,
+            left = iconLeft,
+            top = dropChangeTop,
+            width = iconWidth,
+            height = iconHeight,
+        )
+
+        activeSkillIcons.add(attackUpIcon)
+        activeSkillIcons.add(dropChangeIcon)
+
+        world.add(attackUpIcon, Layer.SKILL_UI)
+        world.add(dropChangeIcon, Layer.SKILL_UI)
+    }
+
+    private fun clearSkillIcons() {
+        for (icon in activeSkillIcons.toList()) {
+            world.remove(icon, Layer.SKILL_UI)
+        }
+
+        activeSkillIcons.clear()
+        activeSkillElementType = null
+    }
+
+    private fun findTouchedSkillIcon(screenX: Float, screenY: Float): SkillIcon? {
+        val pt = gctx.metrics.fromScreen(screenX, screenY)
+
+        for (icon in activeSkillIcons.asReversed()) {
+            if (icon.containsWorldPoint(pt.x, pt.y)) {
+                return icon
+            }
+        }
+
+        return null
+    }
+
+    private fun handleSkillMenuTouch(screenX: Float, screenY: Float): Boolean {
+        val touchedSkillIcon = findTouchedSkillIcon(screenX, screenY)
+        val elementType = activeSkillElementType
+
+        if (touchedSkillIcon == null || elementType == null) {
+            clearSkillIcons()
+            return true
+        }
+
+        when (touchedSkillIcon.skillType) {
+            SkillType.ATTACK_UP -> {
+                onAttackUpSkillTouched(elementType)
+            }
+
+            SkillType.DROP_CHANGE -> {
+                onDropChangeSkillTouched(elementType)
+            }
+        }
+
+        clearSkillIcons()
+        return true
+    }
+
+    @Suppress("UNUSED_PARAMETER")
+    private fun onAttackUpSkillTouched(elementType: DropType) {
+        // TODO:
+        // 나중에 이 속성의 공격력 상승 스킬을 적용한다.
+        // 예: elementType 속성 공격의 skillMultiplier를 1.5f로 설정.
+    }
+
+    @Suppress("UNUSED_PARAMETER")
+    private fun onDropChangeSkillTouched(elementType: DropType) {
+        // TODO:
+        // 나중에 이 속성으로 드롭 색상 변경 스킬을 적용한다.
     }
 
     private fun removeMonster(monster: Monster) {
@@ -520,7 +647,24 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (activeSkillIcons.isNotEmpty()) {
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                return handleSkillMenuTouch(event.x, event.y)
+            }
+
+            return true
+        }
+
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            val touchedElementSlot = findTouchedElementSlot(event.x, event.y)
+
+            if (touchedElementSlot != null) {
+                if (!attackTargetLocked && isSkillElementType(touchedElementSlot.elementType)) {
+                    showSkillIconsFor(touchedElementSlot)
+                }
+                return true
+            }
+
             val touchedMonster = findTouchedMonster(event.x, event.y)
 
             if (touchedMonster != null) {
