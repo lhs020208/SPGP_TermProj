@@ -8,5 +8,6 @@ enum class Layer {
     HOLDING,
     OVERLAY,
     MONSTER,
+    DIM_OVERLAY,
     SKILL_UI,
 }

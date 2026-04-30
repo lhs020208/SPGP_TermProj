@@ -8,7 +8,7 @@ import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
 class ElementSlot(
     gctx: GameContext,
     val elementType: DropType,
-    resId: Int,
+    val resId: Int,
     val slotLeft: Float,
     val slotTop: Float,
     val slotWidth: Float,

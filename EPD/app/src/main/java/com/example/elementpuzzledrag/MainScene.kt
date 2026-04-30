@@ -50,6 +50,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 Layer.HOLDING,
                 Layer.OVERLAY,
                 Layer.MONSTER,
+                Layer.DIM_OVERLAY,
                 Layer.SKILL_UI,
             )
         } else {
@@ -61,6 +62,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 Layer.HOLDING,
                 Layer.OVERLAY,
                 Layer.MONSTER,
+                Layer.DIM_OVERLAY,
                 Layer.SKILL_UI,
             )
         }
@@ -76,6 +78,11 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     private val elementSlots = mutableListOf<ElementSlot>()
     private val activeSkillIcons = mutableListOf<SkillIcon>()
     private var activeSkillElementType: DropType? = null
+
+    private var dropChangeSourceElementType: DropType? = null
+    private var dropChangeDimOverlay: ScreenDimOverlay? = null
+    private val dropChangeSlotOverlays = mutableListOf<ElementSlot>()
+    private val dropChangeTargetMarkers = mutableListOf<DropChangeTargetMarker>()
 
     private data class SkillKey(
         val elementType: DropType,
@@ -280,6 +287,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             world = world,
             onPuzzleDragStarted = {
                 clearSkillIcons()
+                clearDropChangeSelecting()
                 attackTargetLocked = true
             },
             onPuzzleTurnFinishedWithoutAttack = {
@@ -361,6 +369,90 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 skillCooldowns[key] = cooldown - 1
             }
         }
+    }
+
+    private fun isDropChangeSelecting(): Boolean {
+        return dropChangeSourceElementType != null
+    }
+
+    private fun beginDropChangeSelecting(sourceElementType: DropType) {
+        if (!isSkillElementType(sourceElementType)) return
+
+        clearSkillIcons()
+        clearDropChangeSelecting()
+
+        dropChangeSourceElementType = sourceElementType
+
+        val dimOverlay = ScreenDimOverlay(gctx)
+        dropChangeDimOverlay = dimOverlay
+        world.add(dimOverlay, Layer.DIM_OVERLAY)
+
+        for (slot in elementSlots) {
+            val slotOverlay = ElementSlot(
+                gctx = gctx,
+                elementType = slot.elementType,
+                resId = slot.resId,
+                slotLeft = slot.slotLeft,
+                slotTop = slot.slotTop,
+                slotWidth = slot.slotWidth,
+                slotHeight = slot.slotHeight,
+            )
+
+            val marker = DropChangeTargetMarker(
+                gctx = gctx,
+                slot = slot,
+            )
+
+            dropChangeSlotOverlays.add(slotOverlay)
+            dropChangeTargetMarkers.add(marker)
+
+            world.add(slotOverlay, Layer.SKILL_UI)
+            world.add(marker, Layer.SKILL_UI)
+        }
+    }
+
+    private fun clearDropChangeSelecting() {
+        dropChangeDimOverlay?.let { overlay ->
+            world.remove(overlay, Layer.DIM_OVERLAY)
+        }
+
+        for (slotOverlay in dropChangeSlotOverlays.toList()) {
+            world.remove(slotOverlay, Layer.SKILL_UI)
+        }
+
+        for (marker in dropChangeTargetMarkers.toList()) {
+            world.remove(marker, Layer.SKILL_UI)
+        }
+
+        dropChangeDimOverlay = null
+        dropChangeSlotOverlays.clear()
+        dropChangeTargetMarkers.clear()
+        dropChangeSourceElementType = null
+    }
+
+    private fun cancelDropChangeSelecting() {
+        clearDropChangeSelecting()
+    }
+
+    private fun completeDropChangeSelecting(targetElementType: DropType) {
+        val sourceElementType = dropChangeSourceElementType ?: return
+
+        if (targetElementType == sourceElementType) {
+            cancelDropChangeSelecting()
+            return
+        }
+
+        board.changeVisibleDrops(
+            fromType = targetElementType,
+            toType = sourceElementType,
+        )
+
+        resetSkillCooldown(
+            elementType = sourceElementType,
+            skillType = SkillType.DROP_CHANGE,
+        )
+
+        clearDropChangeSelecting()
     }
 
     private fun findTouchedElementSlot(screenX: Float, screenY: Float): ElementSlot? {
@@ -486,15 +578,41 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         when (touchedSkillIcon.skillType) {
             SkillType.ATTACK_UP -> {
                 onAttackUpSkillTouched(elementType)
+                resetSkillCooldown(elementType, touchedSkillIcon.skillType)
+                clearSkillIcons()
             }
 
             SkillType.DROP_CHANGE -> {
-                onDropChangeSkillTouched(elementType)
+                beginDropChangeSelecting(elementType)
             }
         }
 
-        resetSkillCooldown(elementType, touchedSkillIcon.skillType)
-        clearSkillIcons()
+        return true
+    }
+
+    private fun handleDropChangeSelectingTouch(
+        screenX: Float,
+        screenY: Float,
+    ): Boolean {
+        val touchedElementSlot = findTouchedElementSlot(screenX, screenY)
+
+        if (touchedElementSlot == null) {
+            cancelDropChangeSelecting()
+            return true
+        }
+
+        val sourceElementType = dropChangeSourceElementType
+        if (sourceElementType == null) {
+            cancelDropChangeSelecting()
+            return true
+        }
+
+        if (touchedElementSlot.elementType == sourceElementType) {
+            cancelDropChangeSelecting()
+            return true
+        }
+
+        completeDropChangeSelecting(touchedElementSlot.elementType)
         return true
     }
 
@@ -775,6 +893,14 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (isDropChangeSelecting()) {
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                return handleDropChangeSelectingTouch(event.x, event.y)
+            }
+
+            return true
+        }
+
         if (activeSkillIcons.isNotEmpty()) {
             if (event.actionMasked == MotionEvent.ACTION_DOWN) {
                 return handleSkillMenuTouch(event.x, event.y)

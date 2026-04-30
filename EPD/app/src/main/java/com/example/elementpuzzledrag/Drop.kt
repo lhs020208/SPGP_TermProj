@@ -107,6 +107,13 @@ class Drop private constructor(
         return this
     }
 
+    fun changeType(newType: DropType) {
+        if (type == newType) return
+
+        type = newType
+        bitmap = gameContext.res.getBitmap(newType.toResId())
+    }
+
     override fun draw(canvas: Canvas) {
         syncDstRect()
         canvas.drawBitmap(bitmap, srcRect, dstRect, drawPaint)

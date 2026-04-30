@@ -171,6 +171,27 @@ class Board(
         return drops[row][col]
     }
 
+    fun changeVisibleDrops(
+        fromType: DropType,
+        toType: DropType,
+    ): Int {
+        if (fromType == toType) return 0
+
+        var changedCount = 0
+
+        for (row in 0 until VISIBLE_ROWS) {
+            for (col in 0 until COLS) {
+                val drop = drops[row][col] ?: continue
+                if (drop.type != fromType) continue
+
+                drop.changeType(toType)
+                changedCount += 1
+            }
+        }
+
+        return changedCount
+    }
+
     fun getChainCount(): Int {
         return chainCount
     }
