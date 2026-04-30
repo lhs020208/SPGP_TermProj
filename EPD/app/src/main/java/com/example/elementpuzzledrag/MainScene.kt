@@ -13,8 +13,14 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         private const val SHOW_HIDDEN_DROPS_FOR_DEBUG = false
         private const val PLAYER_ATTACK_BASE_CONSTANT = 10f
         private const val DEFAULT_SKILL_MULTIPLIER = 1f
+        private const val ATTACK_UP_SKILL_MULTIPLIER = 1.5f
+
         private const val ATTACK_UP_MAX_COOLDOWN = 3
         private const val DROP_CHANGE_MAX_COOLDOWN = 5
+
+        private const val ATTACK_UP_TEXT_RIGHT_MARGIN = 24f
+        private const val ATTACK_UP_TEXT_TOP = 24f
+        private const val ATTACK_UP_TEXT_LINE_HEIGHT = 48f
 
         private val BASIC_PLAYER_ATTACK_ORDER = listOf(
             DropType.FIRE,
@@ -68,6 +74,9 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     )
 
     private val skillCooldowns = mutableMapOf<SkillKey, Int>()
+
+    private val activeAttackUpElements = mutableSetOf<DropType>()
+    private val attackUpBuffTexts = mutableListOf<AttackUpBuffText>()
 
     init {
         initSkillCooldowns()
@@ -266,6 +275,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             },
             onPuzzleTurnFinishedWithoutAttack = {
                 decreaseAllSkillCooldowns()
+                clearAttackUpBuffs()
                 attackTargetLocked = false
             },
         )
@@ -291,6 +301,17 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             DropType.DARK -> true
 
             DropType.HP -> false
+        }
+    }
+
+    private fun attributeColor(type: DropType): Int {
+        return when (type) {
+            DropType.FIRE -> android.graphics.Color.rgb(0xC0, 0x00, 0x00)
+            DropType.WATER -> android.graphics.Color.rgb(0x00, 0x00, 0xFF)
+            DropType.LEAF -> android.graphics.Color.rgb(0x92, 0xD0, 0x50)
+            DropType.LIGHT -> android.graphics.Color.rgb(0xFF, 0xFF, 0x00)
+            DropType.DARK -> android.graphics.Color.rgb(0x70, 0x30, 0xA0)
+            DropType.HP -> android.graphics.Color.rgb(0xE5, 0x9E, 0xDD)
         }
     }
 
@@ -405,6 +426,37 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         activeSkillElementType = null
     }
 
+    private fun refreshAttackUpBuffTexts() {
+        for (text in attackUpBuffTexts.toList()) {
+            world.remove(text, Layer.SKILL_UI)
+        }
+
+        attackUpBuffTexts.clear()
+
+        val right = gctx.metrics.width - ATTACK_UP_TEXT_RIGHT_MARGIN
+        var index = 0
+
+        for (elementType in BASIC_PLAYER_ATTACK_ORDER) {
+            if (elementType !in activeAttackUpElements) continue
+
+            val text = AttackUpBuffText(
+                color = attributeColor(elementType),
+                right = right,
+                top = ATTACK_UP_TEXT_TOP + ATTACK_UP_TEXT_LINE_HEIGHT * index,
+            )
+
+            attackUpBuffTexts.add(text)
+            world.add(text, Layer.SKILL_UI)
+
+            index += 1
+        }
+    }
+
+    private fun clearAttackUpBuffs() {
+        activeAttackUpElements.clear()
+        refreshAttackUpBuffTexts()
+    }
+
     private fun findTouchedSkillIcon(screenX: Float, screenY: Float): SkillIcon? {
         val pt = gctx.metrics.fromScreen(screenX, screenY)
 
@@ -445,11 +497,11 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         return true
     }
 
-    @Suppress("UNUSED_PARAMETER")
     private fun onAttackUpSkillTouched(elementType: DropType) {
-        // TODO:
-        // 나중에 이 속성의 공격력 상승 스킬을 적용한다.
-        // 예: elementType 속성 공격의 skillMultiplier를 1.5f로 설정.
+        if (!isSkillElementType(elementType)) return
+
+        activeAttackUpElements.add(elementType)
+        refreshAttackUpBuffTexts()
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -675,10 +727,11 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     }
 
     private fun getSkillMultiplier(attackAttribute: DropType): Float {
-        // TODO:
-        // 나중에 스킬이 추가되면 여기서 속성별 스킬 배율을 반환한다.
-        // 예: 불 속성 강화 스킬 사용 중이면 DropType.FIRE일 때 1.5f 반환.
-        return DEFAULT_SKILL_MULTIPLIER
+        return if (attackAttribute in activeAttackUpElements) {
+            ATTACK_UP_SKILL_MULTIPLIER
+        } else {
+            DEFAULT_SKILL_MULTIPLIER
+        }
     }
 
     private fun applyPlayerDamage(
@@ -708,6 +761,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             performPlayerAttacks(attackResult)
         } finally {
             decreaseAllSkillCooldowns()
+            clearAttackUpBuffs()
             attackTargetLocked = false
         }
     }
