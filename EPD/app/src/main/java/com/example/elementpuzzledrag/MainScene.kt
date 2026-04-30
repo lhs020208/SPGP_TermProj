@@ -29,6 +29,15 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             DropType.LIGHT,
             DropType.DARK,
         )
+
+        private val BASIC_SKILL_ELEMENT_ORDER = listOf(
+            DropType.FIRE,
+            DropType.WATER,
+            DropType.LEAF,
+            DropType.LIGHT,
+            DropType.DARK,
+            DropType.HP,
+        )
     }
 
     override val world = World(
@@ -293,15 +302,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     }
 
     private fun isSkillElementType(type: DropType): Boolean {
-        return when (type) {
-            DropType.FIRE,
-            DropType.WATER,
-            DropType.LEAF,
-            DropType.LIGHT,
-            DropType.DARK -> true
-
-            DropType.HP -> false
-        }
+        return type in BASIC_SKILL_ELEMENT_ORDER
     }
 
     private fun attributeColor(type: DropType): Int {
@@ -316,7 +317,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     }
 
     private fun initSkillCooldowns() {
-        for (elementType in BASIC_PLAYER_ATTACK_ORDER) {
+        for (elementType in BASIC_SKILL_ELEMENT_ORDER) {
             for (skillType in SkillType.entries) {
                 val key = SkillKey(elementType, skillType)
                 skillCooldowns[key] = getSkillMaxCooldown(skillType)
@@ -499,6 +500,13 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
 
     private fun onAttackUpSkillTouched(elementType: DropType) {
         if (!isSkillElementType(elementType)) return
+
+        if (elementType == DropType.HP) {
+            // TODO:
+            // 나중에 HP 회복/HP 대미지를 구현하면
+            // 여기서 HP 회복력 1.5배 버프를 활성화한다.
+            return
+        }
 
         activeAttackUpElements.add(elementType)
         refreshAttackUpBuffTexts()
