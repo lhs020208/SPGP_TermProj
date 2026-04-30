@@ -11,9 +11,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
 
     companion object {
         private const val SHOW_HIDDEN_DROPS_FOR_DEBUG = false
-
         private const val PLAYER_ATTACK_BASE_CONSTANT = 10f
         private const val DEFAULT_SKILL_MULTIPLIER = 1f
+        private const val ATTACK_UP_MAX_COOLDOWN = 3
+        private const val DROP_CHANGE_MAX_COOLDOWN = 5
 
         private val BASIC_PLAYER_ATTACK_ORDER = listOf(
             DropType.FIRE,
@@ -61,7 +62,16 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     private val activeSkillIcons = mutableListOf<SkillIcon>()
     private var activeSkillElementType: DropType? = null
 
+    private data class SkillKey(
+        val elementType: DropType,
+        val skillType: SkillType,
+    )
+
+    private val skillCooldowns = mutableMapOf<SkillKey, Int>()
+
     init {
+        initSkillCooldowns()
+
         val screenW = gctx.metrics.width      // 900
         val screenH = gctx.metrics.height     // 1600
         val unitH = screenH / 16f             // 100
@@ -255,6 +265,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 attackTargetLocked = true
             },
             onPuzzleTurnFinishedWithoutAttack = {
+                decreaseAllSkillCooldowns()
                 attackTargetLocked = false
             },
         )
@@ -280,6 +291,53 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             DropType.DARK -> true
 
             DropType.HP -> false
+        }
+    }
+
+    private fun initSkillCooldowns() {
+        for (elementType in BASIC_PLAYER_ATTACK_ORDER) {
+            for (skillType in SkillType.entries) {
+                val key = SkillKey(elementType, skillType)
+                skillCooldowns[key] = getSkillMaxCooldown(skillType)
+            }
+        }
+    }
+
+    private fun getSkillMaxCooldown(skillType: SkillType): Int {
+        return when (skillType) {
+            SkillType.ATTACK_UP -> ATTACK_UP_MAX_COOLDOWN
+            SkillType.DROP_CHANGE -> DROP_CHANGE_MAX_COOLDOWN
+        }
+    }
+
+    private fun getSkillCooldown(
+        elementType: DropType,
+        skillType: SkillType,
+    ): Int {
+        val key = SkillKey(elementType, skillType)
+        return skillCooldowns[key] ?: getSkillMaxCooldown(skillType)
+    }
+
+    private fun isSkillReady(
+        elementType: DropType,
+        skillType: SkillType,
+    ): Boolean {
+        return getSkillCooldown(elementType, skillType) <= 0
+    }
+
+    private fun resetSkillCooldown(
+        elementType: DropType,
+        skillType: SkillType,
+    ) {
+        val key = SkillKey(elementType, skillType)
+        skillCooldowns[key] = getSkillMaxCooldown(skillType)
+    }
+
+    private fun decreaseAllSkillCooldowns() {
+        for ((key, cooldown) in skillCooldowns.toMap()) {
+            if (cooldown > 0) {
+                skillCooldowns[key] = cooldown - 1
+            }
         }
     }
 
@@ -317,6 +375,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             top = attackUpTop,
             width = iconWidth,
             height = iconHeight,
+            cooldownRemaining = getSkillCooldown(slot.elementType, SkillType.ATTACK_UP),
         )
 
         val dropChangeIcon = SkillIcon(
@@ -327,6 +386,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             top = dropChangeTop,
             width = iconWidth,
             height = iconHeight,
+            cooldownRemaining = getSkillCooldown(slot.elementType, SkillType.DROP_CHANGE),
         )
 
         activeSkillIcons.add(attackUpIcon)
@@ -366,6 +426,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             return true
         }
 
+        if (!isSkillReady(elementType, touchedSkillIcon.skillType)) {
+            return true
+        }
+
         when (touchedSkillIcon.skillType) {
             SkillType.ATTACK_UP -> {
                 onAttackUpSkillTouched(elementType)
@@ -376,6 +440,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             }
         }
 
+        resetSkillCooldown(elementType, touchedSkillIcon.skillType)
         clearSkillIcons()
         return true
     }
@@ -642,6 +707,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         try {
             performPlayerAttacks(attackResult)
         } finally {
+            decreaseAllSkillCooldowns()
             attackTargetLocked = false
         }
     }
