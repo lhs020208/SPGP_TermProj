@@ -104,6 +104,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         val attackAttribute: DropType,
         val target: Monster,
         val damage: Int,
+        val effectKind: AttackEffectKind,
     )
 
     private val pendingAttackDamageByMonster = mutableMapOf<Monster, Int>()
@@ -799,6 +800,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                         attackAttribute = attackAttribute,
                         target = target,
                         damage = damage,
+                        effectKind = getAttackEffectKind(
+                            attackAttribute = attackAttribute,
+                            target = target,
+                        ),
                     )
                 )
             }
@@ -807,6 +812,22 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         }
 
         return attacks
+    }
+
+    private fun spawnAttackEffect(
+        kind: AttackEffectKind,
+        centerX: Float,
+        centerY: Float,
+    ) {
+        val effect = AttackEffect(
+            gctx = gctx,
+            world = world,
+            kind = kind,
+            centerX = centerX,
+            centerY = centerY,
+        )
+
+        world.add(effect, Layer.ATTACK)
     }
 
     private fun getPlayerAttackOrder(
@@ -886,17 +907,26 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             val (startX, startY) = getElementSlotCenter(attack.attackAttribute)
             val projectileSize = getAttackProjectileSize(attack.attackAttribute)
 
+            val targetX = attack.target.x
+            val targetY = attack.target.y
+
             val projectile = AttackProjectile(
                 gctx = gctx,
                 world = world,
                 resId = attackProjectileResId(attack.attackAttribute),
                 startX = startX,
                 startY = startY,
-                targetX = attack.target.x,
-                targetY = attack.target.y,
+                targetX = targetX,
+                targetY = targetY,
                 size = projectileSize,
                 speed = randomAttackProjectileSpeed(),
                 onArrived = {
+                    spawnAttackEffect(
+                        kind = attack.effectKind,
+                        centerX = targetX,
+                        centerY = targetY,
+                    )
+
                     onAttackProjectileArrived()
                 },
             )
@@ -987,6 +1017,28 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         }
 
         return 1f
+    }
+
+    private fun getAttackEffectKind(
+        attackAttribute: DropType,
+        target: Monster,
+    ): AttackEffectKind {
+        val multiplier = getAttributeMultiplier(
+            attackAttribute = attackAttribute,
+            defenseAttribute = target.attribute,
+        )
+
+        return when {
+            multiplier < 1f -> AttackEffectKind.SMALL
+            multiplier > 1f -> AttackEffectKind.BIG
+            else -> {
+                if (Random.nextBoolean()) {
+                    AttackEffectKind.NORMAL1
+                } else {
+                    AttackEffectKind.NORMAL2
+                }
+            }
+        }
     }
 
     private fun isStrongAgainst(
