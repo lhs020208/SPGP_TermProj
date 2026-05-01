@@ -15,6 +15,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         private const val DEFAULT_SKILL_MULTIPLIER = 1f
         private const val ATTACK_UP_SKILL_MULTIPLIER = 1.5f
 
+        private const val ATTACK_PROJECTILE_SIZE_RATIO = 0.72f
+        private const val ATTACK_PROJECTILE_MIN_SPEED = 780f
+        private const val ATTACK_PROJECTILE_MAX_SPEED = 900f
+
         private const val ATTACK_UP_MAX_COOLDOWN = 3
         private const val DROP_CHANGE_MAX_COOLDOWN = 5
 
@@ -50,6 +54,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 Layer.HOLDING,
                 Layer.OVERLAY,
                 Layer.MONSTER,
+                Layer.ATTACK,
                 Layer.DIM_OVERLAY,
                 Layer.SKILL_UI,
             )
@@ -62,6 +67,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 Layer.HOLDING,
                 Layer.OVERLAY,
                 Layer.MONSTER,
+                Layer.ATTACK,
                 Layer.DIM_OVERLAY,
                 Layer.SKILL_UI,
             )
@@ -93,6 +99,16 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
 
     private val activeAttackUpElements = mutableSetOf<DropType>()
     private val attackUpBuffTexts = mutableListOf<AttackUpBuffText>()
+
+    private data class PendingPlayerAttack(
+        val attackAttribute: DropType,
+        val target: Monster,
+        val damage: Int,
+    )
+
+    private val pendingAttackDamageByMonster = mutableMapOf<Monster, Int>()
+    private var activeAttackProjectileCount = 0
+    private var playerAttackAnimating = false
 
     init {
         initSkillCooldowns()
@@ -299,6 +315,17 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         world.add(board, Layer.OVERLAY)
     }
 
+    private fun attackProjectileResId(type: DropType): Int {
+        return when (type) {
+            DropType.FIRE -> R.mipmap.a_fire
+            DropType.WATER -> R.mipmap.a_water
+            DropType.LEAF -> R.mipmap.a_leaf
+            DropType.LIGHT -> R.mipmap.a_light
+            DropType.DARK -> R.mipmap.a_dark
+            DropType.HP -> error("HP does not have an attack projectile")
+        }
+    }
+
     private fun addMonster(monster: Monster) {
         monsters.add(monster)
         world.add(monster, Layer.MONSTER)
@@ -322,6 +349,27 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             DropType.DARK -> android.graphics.Color.rgb(0x70, 0x30, 0xA0)
             DropType.HP -> android.graphics.Color.rgb(0xE5, 0x9E, 0xDD)
         }
+    }
+
+    private fun getElementSlotCenter(type: DropType): Pair<Float, Float> {
+        val slot = elementSlots.firstOrNull { it.elementType == type }
+            ?: return gctx.metrics.width / 2f to 0f
+
+        return slot.slotLeft + slot.slotWidth / 2f to
+                slot.slotTop + slot.slotHeight / 2f
+    }
+
+    private fun getAttackProjectileSize(type: DropType): Float {
+        val slot = elementSlots.firstOrNull { it.elementType == type }
+            ?: return 100f
+
+        return kotlin.math.min(slot.slotWidth, slot.slotHeight) * ATTACK_PROJECTILE_SIZE_RATIO
+    }
+
+    private fun randomAttackProjectileSpeed(): Float {
+        return Random.nextFloat() *
+                (ATTACK_PROJECTILE_MAX_SPEED - ATTACK_PROJECTILE_MIN_SPEED) +
+                ATTACK_PROJECTILE_MIN_SPEED
     }
 
     private fun initSkillCooldowns() {
@@ -704,17 +752,19 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
 
 
 
-    private fun performPlayerAttacks(result: PlayerAttackResult) {
-        if (result.chainCount <= 0) return
-        if (monsters.isEmpty()) return
+    private fun planPlayerAttacks(result: PlayerAttackResult): List<PendingPlayerAttack> {
+        if (result.chainCount <= 0) return emptyList()
+        if (monsters.isEmpty()) return emptyList()
 
-        val attackOrder = getPlayerAttackOrder()
+        val plannedHp = monsters.associateWith { it.hp }.toMutableMap()
+        val attackOrder = getPlayerAttackOrder(plannedHp)
 
+        val attacks = mutableListOf<PendingPlayerAttack>()
         var finalStageTarget: Monster? = null
 
         for (attackAttribute in attackOrder) {
             if (finalStageTarget == null) {
-                val aliveMonsters = getAliveMonsters()
+                val aliveMonsters = getAliveMonsters(plannedHp)
 
                 if (aliveMonsters.size == 1) {
                     finalStageTarget = aliveMonsters.first()
@@ -724,6 +774,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             val target = chooseAttackTargetFor(
                 attackAttribute = attackAttribute,
                 finalStageTarget = finalStageTarget,
+                plannedHp = plannedHp,
             ) ?: break
 
             val removedDropCount = result.removedDropCounts[attackAttribute] ?: 0
@@ -734,20 +785,27 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 chainCount = result.chainCount,
             )
 
-            applyPlayerDamage(
-                attackAttribute = attackAttribute,
-                target = target,
-                damage = damage,
-            )
+            if (damage > 0) {
+                attacks.add(
+                    PendingPlayerAttack(
+                        attackAttribute = attackAttribute,
+                        target = target,
+                        damage = damage,
+                    )
+                )
+            }
+
+            plannedHp[target] = (plannedHp[target] ?: target.hp) - damage
         }
 
-        if (finalStageTarget?.isDead() == true) {
-            onStageCleared()
-        }
+        return attacks
     }
 
-    private fun getPlayerAttackOrder(): List<DropType> {
-        val target = targetedMonster?.takeUnless { it.isDead() }
+    private fun getPlayerAttackOrder(
+        plannedHp: Map<Monster, Int>,
+    ): List<DropType> {
+        val target = targetedMonster
+            ?.takeIf { (plannedHp[it] ?: it.hp) > 0 }
             ?: return BASIC_PLAYER_ATTACK_ORDER
 
         val bestAttribute = BASIC_PLAYER_ATTACK_ORDER.firstOrNull { attackAttribute ->
@@ -763,24 +821,29 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     private fun chooseAttackTargetFor(
         attackAttribute: DropType,
         finalStageTarget: Monster?,
+        plannedHp: Map<Monster, Int>,
     ): Monster? {
         if (finalStageTarget != null) {
             return finalStageTarget
         }
 
         targetedMonster?.let { target ->
-            if (!target.isDead()) {
+            if ((plannedHp[target] ?: target.hp) > 0) {
                 return target
             }
-
-            clearAttackTarget()
         }
 
-        return chooseRandomMonsterFor(attackAttribute)
+        return chooseRandomMonsterFor(
+            attackAttribute = attackAttribute,
+            plannedHp = plannedHp,
+        )
     }
 
-    private fun chooseRandomMonsterFor(attackAttribute: DropType): Monster? {
-        val candidates = getAliveMonsters()
+    private fun chooseRandomMonsterFor(
+        attackAttribute: DropType,
+        plannedHp: Map<Monster, Int>,
+    ): Monster? {
+        val candidates = getAliveMonsters(plannedHp)
         if (candidates.isEmpty()) return null
 
         val randomIndex = Random.nextInt(candidates.size)
@@ -789,6 +852,96 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
 
     private fun getAliveMonsters(): List<Monster> {
         return monsters.filter { !it.isDead() }
+    }
+
+    private fun getAliveMonsters(
+        plannedHp: Map<Monster, Int>,
+    ): List<Monster> {
+        return monsters.filter { (plannedHp[it] ?: it.hp) > 0 }
+    }
+
+    private fun startPlayerAttackAnimations(attacks: List<PendingPlayerAttack>) {
+        pendingAttackDamageByMonster.clear()
+
+        if (attacks.isEmpty()) {
+            finishPlayerAttackTurn()
+            return
+        }
+
+        playerAttackAnimating = true
+        activeAttackProjectileCount = attacks.size
+
+        for (attack in attacks) {
+            pendingAttackDamageByMonster[attack.target] =
+                (pendingAttackDamageByMonster[attack.target] ?: 0) + attack.damage
+
+            val (startX, startY) = getElementSlotCenter(attack.attackAttribute)
+            val projectileSize = getAttackProjectileSize(attack.attackAttribute)
+
+            val projectile = AttackProjectile(
+                gctx = gctx,
+                world = world,
+                resId = attackProjectileResId(attack.attackAttribute),
+                startX = startX,
+                startY = startY,
+                targetX = attack.target.x,
+                targetY = attack.target.y,
+                size = projectileSize,
+                speed = randomAttackProjectileSpeed(),
+                onArrived = {
+                    onAttackProjectileArrived()
+                },
+            )
+
+            world.add(projectile, Layer.ATTACK)
+        }
+    }
+
+    private fun onAttackProjectileArrived() {
+        activeAttackProjectileCount -= 1
+
+        if (activeAttackProjectileCount <= 0) {
+            activeAttackProjectileCount = 0
+            finishPlayerAttackAnimations()
+        }
+    }
+
+    private fun finishPlayerAttackAnimations() {
+        for ((monster, damage) in pendingAttackDamageByMonster.toMap()) {
+            if (damage > 0) {
+                monster.takeDamage(damage)
+            }
+        }
+
+        pendingAttackDamageByMonster.clear()
+        playerAttackAnimating = false
+
+        processDeadMonstersAfterPlayerAttack()
+        finishPlayerAttackTurn()
+    }
+
+    private fun processDeadMonstersAfterPlayerAttack() {
+        if (monsters.isEmpty()) return
+
+        val deadMonsters = monsters.filter { it.isDead() }
+        if (deadMonsters.isEmpty()) return
+
+        val aliveMonsters = monsters.filter { !it.isDead() }
+
+        if (aliveMonsters.isEmpty()) {
+            onStageCleared()
+            return
+        }
+
+        for (monster in deadMonsters) {
+            removeMonster(monster)
+        }
+    }
+
+    private fun finishPlayerAttackTurn() {
+        decreaseAllSkillCooldowns()
+        clearAttackUpBuffs()
+        attackTargetLocked = false
     }
 
     private fun calculatePlayerDamage(
@@ -866,33 +1019,25 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         damage: Int,
     ) {
         if (damage <= 0) return
-
-        // TODO 8번 확장:
-        // 나중에는 damage가 target.hp보다 크면 초과 대미지를 계산해서
-        // 다른 랜덤 몬스터에게 이어서 적용하는 처리를 이 함수 안에 넣으면 된다.
-        //
-        // TODO 9번 확장:
-        // 마지막 남은 몬스터인 경우에는 초과 대미지 분산 없이
-        // 모든 공격을 그대로 받게 하는 예외도 여기서 처리하면 된다.
-
         target.takeDamage(damage)
     }
 
     override fun update(gctx: GameContext) {
         super.update(gctx)
 
+        if (playerAttackAnimating) return
+
         val attackResult = board.consumeAttackResult() ?: return
 
-        try {
-            performPlayerAttacks(attackResult)
-        } finally {
-            decreaseAllSkillCooldowns()
-            clearAttackUpBuffs()
-            attackTargetLocked = false
-        }
+        val attacks = planPlayerAttacks(attackResult)
+        startPlayerAttackAnimations(attacks)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (playerAttackAnimating) {
+            return true
+        }
+
         if (isDropChangeSelecting()) {
             if (event.actionMasked == MotionEvent.ACTION_DOWN) {
                 return handleDropChangeSelectingTouch(event.x, event.y)
