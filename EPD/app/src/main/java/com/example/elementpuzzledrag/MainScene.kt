@@ -340,6 +340,14 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         return type in BASIC_SKILL_ELEMENT_ORDER
     }
 
+    private fun attackUpSkillIconResId(elementType: DropType): Int {
+        return if (elementType == DropType.HP) {
+            R.mipmap.skill_recoverup
+        } else {
+            R.mipmap.skill_attackup
+        }
+    }
+
     private fun attributeColor(type: DropType): Int {
         return when (type) {
             DropType.FIRE -> android.graphics.Color.rgb(0xC0, 0x00, 0x00)
@@ -532,7 +540,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         val attackUpIcon = SkillIcon(
             gctx = gctx,
             skillType = SkillType.ATTACK_UP,
-            resId = R.mipmap.skill_attackup,
+            resId = attackUpSkillIconResId(slot.elementType),
             left = iconLeft,
             top = attackUpTop,
             width = iconWidth,
