@@ -12,8 +12,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     companion object {
         private const val SHOW_HIDDEN_DROPS_FOR_DEBUG = false
         private const val PLAYER_ATTACK_BASE_CONSTANT = 10f
+        private const val PLAYER_HEAL_BASE_CONSTANT = 100f
         private const val DEFAULT_SKILL_MULTIPLIER = 1f
         private const val ATTACK_UP_SKILL_MULTIPLIER = 1.5f
+        private const val RECOVER_UP_SKILL_MULTIPLIER = 1.5f
 
         private const val ATTACK_PROJECTILE_SIZE_RATIO = 0.72f
         private const val ATTACK_PROJECTILE_MIN_SPEED = 780f
@@ -106,6 +108,9 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
 
     private val activeAttackUpElements = mutableSetOf<DropType>()
     private val attackUpBuffTexts = mutableListOf<AttackUpBuffText>()
+
+    private var activeRecoverUp = false
+    private var pendingPlayerHealAmount = 0
 
     private data class PendingPlayerAttack(
         val attackAttribute: DropType,
@@ -619,6 +624,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
 
     private fun clearAttackUpBuffs() {
         activeAttackUpElements.clear()
+        activeRecoverUp = false
         refreshAttackUpBuffTexts()
     }
 
@@ -692,20 +698,12 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         if (!isSkillElementType(elementType)) return
 
         if (elementType == DropType.HP) {
-            // TODO:
-            // 나중에 HP 회복/HP 대미지를 구현하면
-            // 여기서 HP 회복력 1.5배 버프를 활성화한다.
+            activeRecoverUp = true
             return
         }
 
         activeAttackUpElements.add(elementType)
         refreshAttackUpBuffTexts()
-    }
-
-    @Suppress("UNUSED_PARAMETER")
-    private fun onDropChangeSkillTouched(elementType: DropType) {
-        // TODO:
-        // 나중에 이 속성으로 드롭 색상 변경 스킬을 적용한다.
     }
 
     private fun removeMonster(monster: Monster) {
@@ -919,14 +917,19 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         return monsters.filter { (plannedHp[it] ?: it.hp) > 0 }
     }
 
-    private fun startPlayerAttackAnimations(attacks: List<PendingPlayerAttack>) {
+    private fun startPlayerAttackAnimations(
+        attacks: List<PendingPlayerAttack>,
+        healAmount: Int,
+    ) {
         pendingAttackDamageByMonster.clear()
+        pendingPlayerHealAmount = healAmount
 
         activeAttackProjectileCount = 0
         activeAttackEffectCount = 0
         playerAttackDamageApplied = false
 
         if (attacks.isEmpty()) {
+            applyPendingPlayerAttackDamage()
             finishPlayerActionTurn()
             return
         }
@@ -985,12 +988,17 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     private fun applyPendingPlayerAttackDamage() {
         if (playerAttackDamageApplied) return
 
+        if (pendingPlayerHealAmount > 0) {
+            healPlayer(pendingPlayerHealAmount)
+        }
+
         for ((monster, damage) in pendingAttackDamageByMonster.toMap()) {
             if (damage > 0) {
                 monster.takeDamage(damage)
             }
         }
 
+        pendingPlayerHealAmount = 0
         pendingAttackDamageByMonster.clear()
         playerAttackDamageApplied = true
 
@@ -1060,6 +1068,21 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         return rawDamage.roundToInt().coerceAtLeast(0)
     }
 
+    private fun calculatePlayerHealAmount(result: PlayerAttackResult): Int {
+        if (result.chainCount <= 0) return 0
+
+        val removedHpDropCount = result.removedDropCounts[DropType.HP] ?: 0
+        if (removedHpDropCount <= 0) return 0
+
+        val rawHeal =
+            removedHpDropCount *
+                    result.chainCount *
+                    PLAYER_HEAL_BASE_CONSTANT *
+                    getRecoverSkillMultiplier()
+
+        return rawHeal.roundToInt().coerceAtLeast(0)
+    }
+
     private fun getAttributeMultiplier(
         attackAttribute: DropType,
         defenseAttribute: DropType,
@@ -1124,6 +1147,14 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     private fun getSkillMultiplier(attackAttribute: DropType): Float {
         return if (attackAttribute in activeAttackUpElements) {
             ATTACK_UP_SKILL_MULTIPLIER
+        } else {
+            DEFAULT_SKILL_MULTIPLIER
+        }
+    }
+
+    private fun getRecoverSkillMultiplier(): Float {
+        return if (activeRecoverUp) {
+            RECOVER_UP_SKILL_MULTIPLIER
         } else {
             DEFAULT_SKILL_MULTIPLIER
         }
@@ -1303,7 +1334,12 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         val attackResult = board.consumeAttackResult() ?: return
 
         val attacks = planPlayerAttacks(attackResult)
-        startPlayerAttackAnimations(attacks)
+        val healAmount = calculatePlayerHealAmount(attackResult)
+
+        startPlayerAttackAnimations(
+            attacks = attacks,
+            healAmount = healAmount,
+        )
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
