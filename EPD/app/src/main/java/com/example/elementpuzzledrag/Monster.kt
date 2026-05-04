@@ -51,6 +51,8 @@ class Monster(
         private const val COLLISION_INSET_RATIO = 0.05f
 
         private val HP_BAR_BG_COLOR = Color.rgb(0x50, 0x16, 0x4A)
+        private const val WARNING_ATTACK_TURN_SCALE = 1.2f
+        private const val ATTACK_BODY_MAX_SCALE = 1.2f
     }
 
     var hp: Int = hp.coerceIn(0, maxHp)
@@ -66,6 +68,7 @@ class Monster(
 
     private var attackMotionPhase = AttackMotionPhase.IDLE
     private var bodyOffsetY = 0f
+    private var bodyScale = 1f
 
     private var onAttackHit: (() -> Unit)? = null
     private var onAttackMotionFinished: (() -> Unit)? = null
@@ -152,6 +155,7 @@ class Monster(
         if (attackMotionPhase != AttackMotionPhase.IDLE) return false
 
         bodyOffsetY = 0f
+        bodyScale = 1f
         attackMotionPhase = AttackMotionPhase.DOWN
 
         onAttackHit = onHit
@@ -210,6 +214,14 @@ class Monster(
         canvas.drawRect(fgRect, hpBarFgPaint)
     }
 
+    private fun attackTurnIconScale(): Float {
+        return if (remainingAttackTurns <= 1) {
+            WARNING_ATTACK_TURN_SCALE
+        } else {
+            1f
+        }
+    }
+
     private fun drawAttackTurnIcon(canvas: Canvas) {
         val turnBitmap = gameContext.res.getBitmap(attackTurnResId())
 
@@ -217,11 +229,24 @@ class Monster(
         val iconHeight = turnBitmap.height
         val gap = 40f
 
-        val dst = RectF(
+        val baseDst = RectF(
             x - iconWidth / 3f + 50f,
             y - height / 4f - (iconHeight + 40f) / 2f - gap,
             x + iconWidth / 3f + 50f,
             y - height / 4f - gap,
+        )
+
+        val scale = attackTurnIconScale()
+        val centerX = baseDst.centerX()
+        val centerY = baseDst.centerY()
+        val scaledWidth = baseDst.width() * scale
+        val scaledHeight = baseDst.height() * scale
+
+        val dst = RectF(
+            centerX - scaledWidth / 2f,
+            centerY - scaledHeight / 2f,
+            centerX + scaledWidth / 2f,
+            centerY + scaledHeight / 2f,
         )
 
         canvas.drawBitmap(turnBitmap, null, dst, null)
@@ -230,6 +255,7 @@ class Monster(
     override fun draw(canvas: Canvas) {
         canvas.save()
         canvas.translate(0f, bodyOffsetY)
+        canvas.scale(bodyScale, bodyScale, x, y + bodyOffsetY)
         super.draw(canvas)
         canvas.restore()
 
@@ -244,8 +270,12 @@ class Monster(
             AttackMotionPhase.DOWN -> {
                 bodyOffsetY += attackMotionSpeed * gctx.frameTime
 
+                val progress = (bodyOffsetY / attackMotionDistance).coerceIn(0f, 1f)
+                bodyScale = 1f + (ATTACK_BODY_MAX_SCALE - 1f) * progress
+
                 if (bodyOffsetY >= attackMotionDistance) {
                     bodyOffsetY = attackMotionDistance
+                    bodyScale = ATTACK_BODY_MAX_SCALE
 
                     val hitCallback = onAttackHit
                     onAttackHit = null
@@ -258,8 +288,12 @@ class Monster(
             AttackMotionPhase.UP -> {
                 bodyOffsetY -= attackMotionSpeed * gctx.frameTime
 
+                val progress = (bodyOffsetY / attackMotionDistance).coerceIn(0f, 1f)
+                bodyScale = 1f + (ATTACK_BODY_MAX_SCALE - 1f) * progress
+
                 if (bodyOffsetY <= 0f) {
                     bodyOffsetY = 0f
+                    bodyScale = 1f
                     attackMotionPhase = AttackMotionPhase.IDLE
 
                     val finishedCallback = onAttackMotionFinished
