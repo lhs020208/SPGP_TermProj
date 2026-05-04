@@ -26,6 +26,8 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         private const val ATTACK_UP_TEXT_TOP = 24f
         private const val ATTACK_UP_TEXT_LINE_HEIGHT = 48f
 
+        private const val PLAYER_MAX_HP = 10000
+
         private val BASIC_PLAYER_ATTACK_ORDER = listOf(
             DropType.FIRE,
             DropType.WATER,
@@ -75,6 +77,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     )
 
     private lateinit var board: Board
+    private lateinit var playerHpBar: HpBar
 
     private val monsters = mutableListOf<Monster>()
     private var targetedMonster: Monster? = null
@@ -233,15 +236,18 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             Layer.HUD,
         )
 
+        playerHpBar = HpBar(
+            gctx = gctx,
+            left = 0f,
+            top = hpTop,
+            barWidth = screenW,
+            barHeight = hpHeight,
+            maxHp = PLAYER_MAX_HP,
+            currentHp = PLAYER_MAX_HP,
+        )
+
         world.add(
-            HpBar(
-                gctx,
-                0f,
-                hpTop,
-                screenW,
-                hpHeight,
-                1f,
-            ),
+            playerHpBar,
             Layer.HUD,
         )
 
@@ -1080,6 +1086,23 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     ) {
         if (damage <= 0) return
         target.takeDamage(damage)
+    }
+
+    private fun damagePlayer(amount: Int) {
+        playerHpBar.takeDamage(amount)
+
+        if (playerHpBar.currentHp <= 0) {
+            onPlayerDead()
+        }
+    }
+
+    private fun healPlayer(amount: Int) {
+        playerHpBar.heal(amount)
+    }
+
+    private fun onPlayerDead() {
+        // TODO:
+        // 게임오버 구현 시 여기서 처리한다.
     }
 
     override fun update(gctx: GameContext) {
