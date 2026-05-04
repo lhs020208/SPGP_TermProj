@@ -30,6 +30,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
 
         private const val DEFAULT_MONSTER_ATTACK_MOTION_DISTANCE = 30f
         private const val DEFAULT_MONSTER_ATTACK_MOTION_SPEED = 375f
+        private const val MONSTER_ATTACK_DELAY_SECONDS = 0.5f
 
         private val BASIC_PLAYER_ATTACK_ORDER = listOf(
             DropType.FIRE,
@@ -120,6 +121,9 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     private var playerAttackDamageApplied = false
     private val monsterAttackQueue = ArrayDeque<Monster>()
     private var monsterAttackAnimating = false
+    private var waitingMonsterAttackDelay = false
+    private var monsterAttackDelayRemaining = 0f
+    private var currentMonsterAttackDelaySeconds = MONSTER_ATTACK_DELAY_SECONDS
 
     init {
         initSkillCooldowns()
@@ -1154,6 +1158,18 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         // 게임오버 구현 시 여기서 처리한다.
     }
 
+    private fun willPlayerDieFromQueuedMonsterAttacks(): Boolean {
+        val totalDamage = monsterAttackQueue.sumOf { monster ->
+            if (monster.isDead() || monster !in monsters) {
+                0
+            } else {
+                monster.attackPower
+            }
+        }
+
+        return totalDamage >= playerHpBar.currentHp
+    }
+
     private fun processMonsterTurnsAfterPlayerAction() {
         monsterAttackQueue.clear()
 
@@ -1177,10 +1193,37 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             }
         }
 
+        currentMonsterAttackDelaySeconds = if (willPlayerDieFromQueuedMonsterAttacks()) {
+            0f
+        } else {
+            MONSTER_ATTACK_DELAY_SECONDS
+        }
+
         startNextMonsterAttackOrFinish()
     }
 
     private fun startNextMonsterAttackOrFinish() {
+        if (playerHpBar.currentHp <= 0) {
+            monsterAttackQueue.clear()
+            finishMonsterActionPhase()
+            return
+        }
+
+        if (monsterAttackQueue.isEmpty()) {
+            finishMonsterActionPhase()
+            return
+        }
+
+        if (currentMonsterAttackDelaySeconds > 0f) {
+            waitingMonsterAttackDelay = true
+            monsterAttackDelayRemaining = currentMonsterAttackDelaySeconds
+            return
+        }
+
+        startNextMonsterAttackNow()
+    }
+
+    private fun startNextMonsterAttackNow() {
         if (playerHpBar.currentHp <= 0) {
             monsterAttackQueue.clear()
             finishMonsterActionPhase()
@@ -1220,19 +1263,42 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         }
     }
 
+    private fun updateMonsterAttackDelay(frameTime: Float) {
+        if (!waitingMonsterAttackDelay) return
+
+        monsterAttackDelayRemaining -= frameTime
+
+        if (monsterAttackDelayRemaining > 0f) return
+
+        waitingMonsterAttackDelay = false
+        monsterAttackDelayRemaining = 0f
+
+        startNextMonsterAttackNow()
+    }
+
     private fun monsterAttackPlayer(monster: Monster) {
         damagePlayer(monster.attackPower)
     }
 
     private fun finishMonsterActionPhase() {
         monsterAttackAnimating = false
+        waitingMonsterAttackDelay = false
+        monsterAttackDelayRemaining = 0f
+        currentMonsterAttackDelaySeconds = MONSTER_ATTACK_DELAY_SECONDS
         attackTargetLocked = false
     }
 
     override fun update(gctx: GameContext) {
         super.update(gctx)
 
-        if (playerAttackAnimating) return
+        if (waitingMonsterAttackDelay) {
+            updateMonsterAttackDelay(gctx.frameTime)
+            return
+        }
+
+        if (playerAttackAnimating || monsterAttackAnimating || monsterAttackQueue.isNotEmpty()) {
+            return
+        }
 
         val attackResult = board.consumeAttackResult() ?: return
 
@@ -1241,10 +1307,12 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (playerAttackAnimating || monsterAttackAnimating || monsterAttackQueue.isNotEmpty()) {
-            return true
-        }
-        if (playerAttackAnimating) {
+        if (
+            playerAttackAnimating ||
+            monsterAttackAnimating ||
+            waitingMonsterAttackDelay ||
+            monsterAttackQueue.isNotEmpty()
+        ) {
             return true
         }
         if (isDropChangeSelecting()) {
