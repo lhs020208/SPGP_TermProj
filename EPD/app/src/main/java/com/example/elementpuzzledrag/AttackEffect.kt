@@ -17,6 +17,7 @@ class AttackEffect(
     private val kind: AttackEffectKind,
     centerX: Float,
     centerY: Float,
+    private val onFinished: () -> Unit = {},
 ) : AnimSprite(
     gctx = gctx,
     resId = effectResId(kind),
@@ -73,6 +74,7 @@ class AttackEffect(
     }
 
     private var elapsed = 0f
+    private var finished = false
     private val duration = effectFrameCount(kind) / EFFECT_FPS
 
     init {
@@ -84,10 +86,14 @@ class AttackEffect(
     }
 
     override fun update(gctx: GameContext) {
+        if (finished) return
+
         elapsed += gctx.frameTime
 
         if (elapsed >= duration) {
+            finished = true
             world.remove(this, Layer.ATTACK)
+            onFinished()
         }
     }
 }

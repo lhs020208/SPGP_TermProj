@@ -112,7 +112,9 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
 
     private val pendingAttackDamageByMonster = mutableMapOf<Monster, Int>()
     private var activeAttackProjectileCount = 0
+    private var activeAttackEffectCount = 0
     private var playerAttackAnimating = false
+    private var playerAttackDamageApplied = false
 
     init {
         initSkillCooldowns()
@@ -267,7 +269,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             Monster(
                 gameContext = gctx,
                 attribute = DropType.FIRE,
-                attackPower = 100,
+                attackPower = 1000,
                 hp = 500,
                 MaxremainingAttackTurns = 3,
                 hpGaugeSize = Monster.HpGaugeSize.SMALL,
@@ -281,7 +283,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             Monster(
                 gameContext = gctx,
                 attribute = DropType.LEAF,
-                attackPower = 100,
+                attackPower = 1000,
                 hp = 500,
                 MaxremainingAttackTurns = 3,
                 hpGaugeSize = Monster.HpGaugeSize.SMALL,
@@ -295,7 +297,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             Monster(
                 gameContext = gctx,
                 attribute = DropType.WATER,
-                attackPower = 100,
+                attackPower = 1000,
                 hp = 500,
                 MaxremainingAttackTurns = 3,
                 hpGaugeSize = Monster.HpGaugeSize.SMALL,
@@ -314,9 +316,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 attackTargetLocked = true
             },
             onPuzzleTurnFinishedWithoutAttack = {
-                decreaseAllSkillCooldowns()
-                clearAttackUpBuffs()
-                attackTargetLocked = false
+                finishPlayerActionTurn()
             },
         )
         world.add(board, Layer.OVERLAY)
@@ -825,15 +825,30 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         centerX: Float,
         centerY: Float,
     ) {
+        activeAttackEffectCount += 1
+
         val effect = AttackEffect(
             gctx = gctx,
             world = world,
             kind = kind,
             centerX = centerX,
             centerY = centerY,
+            onFinished = {
+                onAttackEffectFinished()
+            },
         )
 
         world.add(effect, Layer.ATTACK)
+    }
+
+    private fun onAttackEffectFinished() {
+        activeAttackEffectCount -= 1
+
+        if (activeAttackEffectCount < 0) {
+            activeAttackEffectCount = 0
+        }
+
+        finishPlayerAttackTurnIfReady()
     }
 
     private fun getPlayerAttackOrder(
@@ -898,8 +913,12 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     private fun startPlayerAttackAnimations(attacks: List<PendingPlayerAttack>) {
         pendingAttackDamageByMonster.clear()
 
+        activeAttackProjectileCount = 0
+        activeAttackEffectCount = 0
+        playerAttackDamageApplied = false
+
         if (attacks.isEmpty()) {
-            finishPlayerAttackTurn()
+            finishPlayerActionTurn()
             return
         }
 
@@ -944,13 +963,19 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     private fun onAttackProjectileArrived() {
         activeAttackProjectileCount -= 1
 
-        if (activeAttackProjectileCount <= 0) {
+        if (activeAttackProjectileCount < 0) {
             activeAttackProjectileCount = 0
-            finishPlayerAttackAnimations()
+        }
+
+        if (activeAttackProjectileCount <= 0) {
+            applyPendingPlayerAttackDamage()
+            finishPlayerAttackTurnIfReady()
         }
     }
 
-    private fun finishPlayerAttackAnimations() {
+    private fun applyPendingPlayerAttackDamage() {
+        if (playerAttackDamageApplied) return
+
         for ((monster, damage) in pendingAttackDamageByMonster.toMap()) {
             if (damage > 0) {
                 monster.takeDamage(damage)
@@ -958,10 +983,28 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         }
 
         pendingAttackDamageByMonster.clear()
-        playerAttackAnimating = false
+        playerAttackDamageApplied = true
 
         processDeadMonstersAfterPlayerAttack()
-        finishPlayerAttackTurn()
+    }
+
+    private fun finishPlayerAttackTurnIfReady() {
+        if (!playerAttackAnimating) return
+        if (!playerAttackDamageApplied) return
+        if (activeAttackProjectileCount > 0) return
+        if (activeAttackEffectCount > 0) return
+
+        playerAttackAnimating = false
+        finishPlayerActionTurn()
+    }
+
+    private fun finishPlayerActionTurn() {
+        decreaseAllSkillCooldowns()
+        clearAttackUpBuffs()
+
+        processMonsterTurnsAfterPlayerAction()
+
+        attackTargetLocked = false
     }
 
     private fun processDeadMonstersAfterPlayerAttack() {
@@ -1089,9 +1132,12 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     }
 
     private fun damagePlayer(amount: Int) {
+        if (amount <= 0) return
+
         playerHpBar.takeDamage(amount)
 
         if (playerHpBar.currentHp <= 0) {
+            playerHpBar.setHp(0)
             onPlayerDead()
         }
     }
@@ -1103,6 +1149,34 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     private fun onPlayerDead() {
         // TODO:
         // 게임오버 구현 시 여기서 처리한다.
+    }
+
+    private fun processMonsterTurnsAfterPlayerAction() {
+        if (playerHpBar.currentHp <= 0) return
+        if (monsters.isEmpty()) return
+
+        val attackingMonsters = mutableListOf<Monster>()
+
+        for (monster in monsters.toList()) {
+            if (monster.isDead()) continue
+
+            monster.decreaseAttackTurn()
+
+            if (monster.remainingAttackTurns <= 0) {
+                attackingMonsters.add(monster)
+            }
+        }
+
+        for (monster in attackingMonsters) {
+            if (monster.isDead()) continue
+
+            monsterAttackPlayer(monster)
+            monster.resetAttackTurn(monster.MaxremainingAttackTurns)
+        }
+    }
+
+    private fun monsterAttackPlayer(monster: Monster) {
+        damagePlayer(monster.attackPower)
     }
 
     override fun update(gctx: GameContext) {
