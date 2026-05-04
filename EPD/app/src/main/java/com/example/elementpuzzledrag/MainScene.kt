@@ -28,6 +28,9 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
 
         private const val PLAYER_MAX_HP = 10000
 
+        private const val DEFAULT_MONSTER_ATTACK_MOTION_DISTANCE = 30f
+        private const val DEFAULT_MONSTER_ATTACK_MOTION_SPEED = 375f
+
         private val BASIC_PLAYER_ATTACK_ORDER = listOf(
             DropType.FIRE,
             DropType.WATER,
@@ -115,6 +118,8 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     private var activeAttackEffectCount = 0
     private var playerAttackAnimating = false
     private var playerAttackDamageApplied = false
+    private val monsterAttackQueue = ArrayDeque<Monster>()
+    private var monsterAttackAnimating = false
 
     init {
         initSkillCooldowns()
@@ -1003,8 +1008,6 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         clearAttackUpBuffs()
 
         processMonsterTurnsAfterPlayerAction()
-
-        attackTargetLocked = false
     }
 
     private fun processDeadMonstersAfterPlayerAttack() {
@@ -1152,10 +1155,17 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     }
 
     private fun processMonsterTurnsAfterPlayerAction() {
-        if (playerHpBar.currentHp <= 0) return
-        if (monsters.isEmpty()) return
+        monsterAttackQueue.clear()
 
-        val attackingMonsters = mutableListOf<Monster>()
+        if (playerHpBar.currentHp <= 0) {
+            finishMonsterActionPhase()
+            return
+        }
+
+        if (monsters.isEmpty()) {
+            finishMonsterActionPhase()
+            return
+        }
 
         for (monster in monsters.toList()) {
             if (monster.isDead()) continue
@@ -1163,20 +1173,60 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             monster.decreaseAttackTurn()
 
             if (monster.remainingAttackTurns <= 0) {
-                attackingMonsters.add(monster)
+                monsterAttackQueue.addLast(monster)
             }
         }
 
-        for (monster in attackingMonsters) {
-            if (monster.isDead()) continue
+        startNextMonsterAttackOrFinish()
+    }
 
+    private fun startNextMonsterAttackOrFinish() {
+        if (playerHpBar.currentHp <= 0) {
+            monsterAttackQueue.clear()
+            finishMonsterActionPhase()
+            return
+        }
+
+        if (monsterAttackQueue.isEmpty()) {
+            finishMonsterActionPhase()
+            return
+        }
+
+        val monster = monsterAttackQueue.removeFirst()
+
+        if (monster.isDead() || monster !in monsters) {
+            startNextMonsterAttackOrFinish()
+            return
+        }
+
+        monsterAttackAnimating = true
+
+        val started = monster.startAttackMotion(
+            onHit = {
+                monsterAttackPlayer(monster)
+            },
+            onFinished = {
+                monster.resetAttackTurn(monster.MaxremainingAttackTurns)
+                monsterAttackAnimating = false
+                startNextMonsterAttackOrFinish()
+            },
+        )
+
+        if (!started) {
             monsterAttackPlayer(monster)
             monster.resetAttackTurn(monster.MaxremainingAttackTurns)
+            monsterAttackAnimating = false
+            startNextMonsterAttackOrFinish()
         }
     }
 
     private fun monsterAttackPlayer(monster: Monster) {
         damagePlayer(monster.attackPower)
+    }
+
+    private fun finishMonsterActionPhase() {
+        monsterAttackAnimating = false
+        attackTargetLocked = false
     }
 
     override fun update(gctx: GameContext) {
@@ -1191,10 +1241,12 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (playerAttackAnimating || monsterAttackAnimating || monsterAttackQueue.isNotEmpty()) {
+            return true
+        }
         if (playerAttackAnimating) {
             return true
         }
-
         if (isDropChangeSelecting()) {
             if (event.actionMasked == MotionEvent.ACTION_DOWN) {
                 return handleDropChangeSelectingTouch(event.x, event.y)

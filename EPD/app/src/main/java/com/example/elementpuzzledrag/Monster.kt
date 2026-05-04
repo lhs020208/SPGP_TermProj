@@ -21,6 +21,8 @@ class Monster(
     centerY: Float,
     drawWidth: Float? = null,
     drawHeight: Float? = null,
+    val attackMotionDistance: Float = 30f,
+    val attackMotionSpeed: Float = 375f,
 ) : Sprite(gameContext, resId), IBoxCollidable {
 
     enum class HpGaugeSize(
@@ -55,6 +57,18 @@ class Monster(
         private set
     var remainingAttackTurns = MaxremainingAttackTurns.coerceAtLeast(0)
     override val collisionRect = RectF()
+
+    private enum class AttackMotionPhase {
+        IDLE,
+        DOWN,
+        UP,
+    }
+
+    private var attackMotionPhase = AttackMotionPhase.IDLE
+    private var bodyOffsetY = 0f
+
+    private var onAttackHit: (() -> Unit)? = null
+    private var onAttackMotionFinished: (() -> Unit)? = null
     private val hpBarBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
         color = HP_BAR_BG_COLOR
@@ -131,6 +145,21 @@ class Monster(
         return collisionRect.contains(px, py)
     }
 
+    fun startAttackMotion(
+        onHit: () -> Unit,
+        onFinished: () -> Unit,
+    ): Boolean {
+        if (attackMotionPhase != AttackMotionPhase.IDLE) return false
+
+        bodyOffsetY = 0f
+        attackMotionPhase = AttackMotionPhase.DOWN
+
+        onAttackHit = onHit
+        onAttackMotionFinished = onFinished
+
+        return true
+    }
+
     fun getTargetMarkerCenter(markerHeight: Float, markerGap: Float): Pair<Float, Float> {
         val hpGaugeBottom = y + height / 2f + hpGaugeSize.gap + hpGaugeSize.barHeight
         val markerCenterX = x
@@ -199,8 +228,45 @@ class Monster(
     }
 
     override fun draw(canvas: Canvas) {
+        canvas.save()
+        canvas.translate(0f, bodyOffsetY)
         super.draw(canvas)
+        canvas.restore()
+
         drawHpGauge(canvas)
         drawAttackTurnIcon(canvas)
+    }
+
+    override fun update(gctx: GameContext) {
+        when (attackMotionPhase) {
+            AttackMotionPhase.IDLE -> return
+
+            AttackMotionPhase.DOWN -> {
+                bodyOffsetY += attackMotionSpeed * gctx.frameTime
+
+                if (bodyOffsetY >= attackMotionDistance) {
+                    bodyOffsetY = attackMotionDistance
+
+                    val hitCallback = onAttackHit
+                    onAttackHit = null
+                    hitCallback?.invoke()
+
+                    attackMotionPhase = AttackMotionPhase.UP
+                }
+            }
+
+            AttackMotionPhase.UP -> {
+                bodyOffsetY -= attackMotionSpeed * gctx.frameTime
+
+                if (bodyOffsetY <= 0f) {
+                    bodyOffsetY = 0f
+                    attackMotionPhase = AttackMotionPhase.IDLE
+
+                    val finishedCallback = onAttackMotionFinished
+                    onAttackMotionFinished = null
+                    finishedCallback?.invoke()
+                }
+            }
+        }
     }
 }
