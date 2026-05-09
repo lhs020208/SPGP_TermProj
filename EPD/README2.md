@@ -1,4 +1,3 @@
-<img width="922" height="602" alt="screenshot" src="https://github.com/user-attachments/assets/ab14cdee-6ba3-4d33-9e3a-0bb95ef49a84" />
 # 프로젝트 제목: Element Puzzle Drag
 
 # 게임 소개
