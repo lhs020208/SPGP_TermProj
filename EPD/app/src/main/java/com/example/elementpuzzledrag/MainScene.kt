@@ -114,6 +114,58 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     private var activeRecoverUp = false
     private var pendingPlayerHealAmount = 0
 
+    private val stageSpecs = StageData.stages
+
+    private var currentStageIndex = -1
+    private var stageBackground: UiSprite? = null
+    private var pendingStageAdvance = false
+
+    private data class MainSceneLayout(
+        val screenW: Float,
+        val screenH: Float,
+        val unitH: Float,
+        val stageTop: Float,
+        val stageHeight: Float,
+        val elementTop: Float,
+        val elementHeight: Float,
+        val hpTop: Float,
+        val hpHeight: Float,
+        val puzzleTop: Float,
+        val puzzleHeight: Float,
+    )
+
+    private fun makeLayout(): MainSceneLayout {
+        val screenW = gctx.metrics.width
+        val screenH = gctx.metrics.height
+        val unitH = screenH / 16f
+
+        val stageTop = 0f
+        val stageHeight = 6.5f * unitH
+
+        val elementTop = stageTop + stageHeight
+        val elementHeight = 1.5f * unitH
+
+        val hpTop = elementTop + elementHeight
+        val hpHeight = 0.5f * unitH
+
+        val puzzleTop = hpTop + hpHeight
+        val puzzleHeight = 7.5f * unitH
+
+        return MainSceneLayout(
+            screenW = screenW,
+            screenH = screenH,
+            unitH = unitH,
+            stageTop = stageTop,
+            stageHeight = stageHeight,
+            elementTop = elementTop,
+            elementHeight = elementHeight,
+            hpTop = hpTop,
+            hpHeight = hpHeight,
+            puzzleTop = puzzleTop,
+            puzzleHeight = puzzleHeight,
+        )
+    }
+
     private data class PendingPlayerAttack(
         val attackAttribute: DropType,
         val target: Monster,
@@ -135,37 +187,22 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     init {
         initSkillCooldowns()
 
-        val screenW = gctx.metrics.width      // 900
-        val screenH = gctx.metrics.height     // 1600
-        val unitH = screenH / 16f             // 100
+        val layout = makeLayout()
 
-        val stageTop = 0f
-        val stageHeight = 6.5f * unitH
+        val screenW = layout.screenW
 
-        val elementTop = stageTop + stageHeight
-        val elementHeight = 1.5f * unitH
+        val elementTop = layout.elementTop
+        val elementHeight = layout.elementHeight
 
-        val hpTop = elementTop + elementHeight
-        val hpHeight = 0.5f * unitH
+        val hpTop = layout.hpTop
+        val hpHeight = layout.hpHeight
 
-        val puzzleTop = hpTop + hpHeight
-        val puzzleHeight = 7.5f * unitH
+        val puzzleTop = layout.puzzleTop
+        val puzzleHeight = layout.puzzleHeight
 
         val typeGuideMargin = 20f
         val typeGuideWidth = 130f
         val typeGuideHeight = typeGuideWidth * 440f / 327f
-
-        world.add(
-            UiSprite(
-                gctx,
-                R.mipmap.stage1,
-                0f,
-                stageTop,
-                screenW,
-                stageHeight,
-            ),
-            Layer.STAGE,
-        )
 
         val elementSlotWidth = screenW / 6f
         val elementSlotHeight = elementHeight
@@ -281,47 +318,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             Layer.PUZZLE_BG,
         )
 
-        addMonster(
-            Monster(
-                gameContext = gctx,
-                attribute = DropType.FIRE,
-                attackPower = 1000,
-                hp = 500,
-                MaxremainingAttackTurns = 3,
-                hpGaugeSize = Monster.HpGaugeSize.SMALL,
-                resId = R.mipmap.m_firemonmus,
-                centerX = screenW / 2f,
-                centerY = stageTop + stageHeight / 2f,
-            )
-        )
-
-        addMonster(
-            Monster(
-                gameContext = gctx,
-                attribute = DropType.LEAF,
-                attackPower = 1000,
-                hp = 500,
-                MaxremainingAttackTurns = 3,
-                hpGaugeSize = Monster.HpGaugeSize.SMALL,
-                resId = R.mipmap.m_leafmonmus,
-                centerX = screenW / 2f - 300,
-                centerY = stageTop + stageHeight / 2f + 100,
-            )
-        )
-
-        addMonster(
-            Monster(
-                gameContext = gctx,
-                attribute = DropType.WATER,
-                attackPower = 1000,
-                hp = 500,
-                MaxremainingAttackTurns = 3,
-                hpGaugeSize = Monster.HpGaugeSize.SMALL,
-                resId = R.mipmap.m_watermonmus,
-                centerX = screenW / 2f + 300,
-                centerY = stageTop + stageHeight / 2f + 100,
-            )
-        )
+        loadStage(0)
 
         board = Board(
             gctx = gctx,
@@ -347,6 +344,62 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             DropType.DARK -> R.mipmap.a_dark
             DropType.HP -> error("HP does not have an attack projectile")
         }
+    }
+
+    private fun loadStage(stageIndex: Int) {
+        if (stageIndex !in stageSpecs.indices) {
+            onAllStagesCleared()
+            return
+        }
+
+        clearStageObjects()
+
+        currentStageIndex = stageIndex
+
+        val layout = makeLayout()
+        val stage = stageSpecs[stageIndex]
+
+        val background = UiSprite(
+            gctx,
+            stage.backgroundResId,
+            0f,
+            layout.stageTop,
+            layout.screenW,
+            layout.stageHeight,
+        )
+
+        stageBackground = background
+        world.add(background, Layer.STAGE)
+
+        for (monsterSpec in stage.monsters) {
+            addMonster(createMonster(monsterSpec, layout))
+        }
+    }
+
+    private fun createMonster(
+        spec: MonsterSpec,
+        layout: MainSceneLayout,
+    ): Monster {
+        val stageCenterX = layout.screenW / 2f
+        val stageCenterY = layout.stageTop + layout.stageHeight / 2f
+
+        return Monster(
+            gameContext = gctx,
+            attribute = spec.attribute,
+            attackPower = spec.attackPower,
+            hp = spec.hp,
+            MaxremainingAttackTurns = spec.maxRemainingAttackTurns,
+            hpGaugeSize = spec.hpGaugeSize,
+            resId = spec.resId,
+            centerX = stageCenterX + spec.centerXOffsetFromStageCenter,
+            centerY = stageCenterY + spec.centerYOffsetFromStageCenter,
+            drawWidth = spec.drawWidth,
+            drawHeight = spec.drawHeight,
+            attackMotionDistance = spec.attackMotionDistance
+                ?: DEFAULT_MONSTER_ATTACK_MOTION_DISTANCE,
+            attackMotionSpeed = spec.attackMotionSpeed
+                ?: DEFAULT_MONSTER_ATTACK_MOTION_SPEED,
+        )
     }
 
     private fun addMonster(monster: Monster) {
@@ -730,7 +783,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         targetedMonster = null
     }
 
-    private fun clearCurrentStageMonsters() {
+    private fun clearStageMonsters() {
         clearAttackTarget()
 
         for (monster in monsters.toList()) {
@@ -740,8 +793,24 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         monsters.clear()
     }
 
+    private fun clearStageObjects() {
+        clearStageMonsters()
+
+        monsterAttackQueue.clear()
+        monsterAttackAnimating = false
+        waitingMonsterAttackDelay = false
+        monsterAttackDelayRemaining = 0f
+        currentMonsterAttackDelaySeconds = MONSTER_ATTACK_DELAY_SECONDS
+
+        stageBackground?.let { background ->
+            world.remove(background, Layer.STAGE)
+        }
+        stageBackground = null
+    }
+
     private fun onStageCleared() {
-        clearCurrentStageMonsters()
+        clearStageMonsters()
+        pendingStageAdvance = true
     }
 
     private fun setAttackTarget(monster: Monster) {
@@ -1050,12 +1119,6 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         for (monster in deadMonsters) {
             removeMonster(monster)
         }
-    }
-
-    private fun finishPlayerAttackTurn() {
-        decreaseAllSkillCooldowns()
-        clearAttackUpBuffs()
-        attackTargetLocked = false
     }
 
     private fun calculatePlayerDamage(
@@ -1398,12 +1461,33 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         damagePlayer(monster.attackPower)
     }
 
+    private fun loadNextStageOrFinish() {
+        val nextStageIndex = currentStageIndex + 1
+
+        if (nextStageIndex in stageSpecs.indices) {
+            loadStage(nextStageIndex)
+        } else {
+            onAllStagesCleared()
+        }
+    }
+
+    private fun onAllStagesCleared() {
+        // TODO:
+        // 모든 스테이지 클리어 처리.
+        // 지금은 1스테이지만 있으므로 배경은 그대로 두고 몬스터 없는 상태로 둔다.
+    }
+
     private fun finishMonsterActionPhase() {
         monsterAttackAnimating = false
         waitingMonsterAttackDelay = false
         monsterAttackDelayRemaining = 0f
         currentMonsterAttackDelaySeconds = MONSTER_ATTACK_DELAY_SECONDS
         attackTargetLocked = false
+
+        if (pendingStageAdvance) {
+            pendingStageAdvance = false
+            loadNextStageOrFinish()
+        }
     }
 
     override fun update(gctx: GameContext) {
