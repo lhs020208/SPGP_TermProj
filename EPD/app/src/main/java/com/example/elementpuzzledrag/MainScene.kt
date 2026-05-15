@@ -1169,6 +1169,22 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         target.takeDamage(damage)
     }
 
+    private fun showPlayerDamageText(damage: Int) {
+        if (damage <= 0) return
+
+        val (centerX, centerY) = playerHpBar.getCurrentHpRightCenter()
+
+        val damageText = PlayerDamageText(
+            gctx = gctx,
+            world = world,
+            damage = damage,
+            centerX = centerX,
+            centerY = centerY,
+        )
+
+        world.add(damageText, Layer.HUD)
+    }
+
     private fun damagePlayer(amount: Int) {
         if (amount <= 0) return
 
@@ -1176,6 +1192,11 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
 
         if (playerHpBar.currentHp <= 0) {
             playerHpBar.setHp(0)
+        }
+
+        showPlayerDamageText(amount)
+
+        if (playerHpBar.currentHp <= 0) {
             onPlayerDead()
         }
     }

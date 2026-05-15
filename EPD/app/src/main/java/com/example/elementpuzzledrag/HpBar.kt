@@ -63,6 +63,15 @@ class HpBar(
         currentHp = value.coerceIn(0, maxHp)
     }
 
+    fun getCurrentHpRightCenter(): Pair<Float, Float> {
+        val visibleRatio = hpRatio.coerceIn(0f, 1f)
+
+        val rightX = left + barWidth * visibleRatio
+        val centerY = top + barHeight / 2f
+
+        return rightX to centerY
+    }
+
     override fun update(gctx: GameContext) {
     }
 
