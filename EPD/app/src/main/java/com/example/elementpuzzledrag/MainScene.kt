@@ -63,6 +63,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 Layer.OVERLAY,
                 Layer.MONSTER,
                 Layer.ATTACK,
+                Layer.ATTACK_TEXT,
                 Layer.DIM_OVERLAY,
                 Layer.SKILL_UI,
             )
@@ -76,6 +77,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 Layer.OVERLAY,
                 Layer.MONSTER,
                 Layer.ATTACK,
+                Layer.ATTACK_TEXT,
                 Layer.DIM_OVERLAY,
                 Layer.SKILL_UI,
             )
@@ -964,6 +966,12 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                         centerY = targetY,
                     )
 
+                    showPlayerAttackDamageText(
+                        attack = attack,
+                        centerX = targetX,
+                        centerY = targetY,
+                    )
+
                     onAttackProjectileArrived()
                 },
             )
@@ -1118,6 +1126,44 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 }
             }
         }
+    }
+
+    private fun getPlayerAttackDamageTextScale(
+        attackAttribute: DropType,
+        target: Monster,
+    ): Float {
+        val multiplier = getAttributeMultiplier(
+            attackAttribute = attackAttribute,
+            defenseAttribute = target.attribute,
+        )
+
+        return when {
+            multiplier > 1f -> 1.75f
+            multiplier < 1f -> 1f
+            else -> 1.5f
+        }
+    }
+
+    private fun showPlayerAttackDamageText(
+        attack: PendingPlayerAttack,
+        centerX: Float,
+        centerY: Float,
+    ) {
+        if (attack.damage <= 0) return
+
+        val damageText = PlayerAttackDamageText(
+            world = world,
+            damage = attack.damage,
+            color = attributeColor(attack.attackAttribute),
+            centerX = centerX,
+            centerY = centerY,
+            sizeScale = getPlayerAttackDamageTextScale(
+                attackAttribute = attack.attackAttribute,
+                target = attack.target,
+            ),
+        )
+
+        world.add(damageText, Layer.ATTACK_TEXT)
     }
 
     private fun isStrongAgainst(

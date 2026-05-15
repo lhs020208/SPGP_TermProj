@@ -9,6 +9,7 @@ enum class Layer {
     OVERLAY,
     MONSTER,
     ATTACK,
+    ATTACK_TEXT,
     DIM_OVERLAY,
     SKILL_UI,
 }
