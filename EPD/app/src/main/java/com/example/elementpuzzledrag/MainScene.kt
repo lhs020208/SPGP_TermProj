@@ -926,6 +926,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         pendingAttackDamageByMonster.clear()
         pendingPlayerHealAmount = healAmount
 
+        if (healAmount > 0) {
+            showPlayerHealText(healAmount)
+        }
+
         activeAttackProjectileCount = 0
         activeAttackEffectCount = 0
         playerAttackDamageApplied = false
@@ -1229,6 +1233,22 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         )
 
         world.add(damageText, Layer.HUD)
+    }
+
+    private fun showPlayerHealText(healAmount: Int) {
+        if (healAmount <= 0) return
+
+        val (centerX, centerY) = playerHpBar.getCurrentHpRightCenter()
+
+        val healText = PlayerHealText(
+            gctx = gctx,
+            world = world,
+            healAmount = healAmount,
+            centerX = centerX,
+            centerY = centerY,
+        )
+
+        world.add(healText, Layer.HUD)
     }
 
     private fun damagePlayer(amount: Int) {
