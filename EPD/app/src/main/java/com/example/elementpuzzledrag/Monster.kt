@@ -23,6 +23,7 @@ class Monster(
     drawHeight: Float? = null,
     val attackMotionDistance: Float = 30f,
     val attackMotionSpeed: Float = 375f,
+    initialRemainingAttackTurns: Int? = null,
 ) : Sprite(gameContext, resId), IBoxCollidable {
 
     enum class HpGaugeSize(
@@ -57,7 +58,8 @@ class Monster(
 
     var hp: Int = hp.coerceIn(0, maxHp)
         private set
-    var remainingAttackTurns = MaxremainingAttackTurns.coerceAtLeast(0)
+    var remainingAttackTurns =
+        (initialRemainingAttackTurns ?: MaxremainingAttackTurns).coerceAtLeast(0)
     override val collisionRect = RectF()
 
     private enum class AttackMotionPhase {

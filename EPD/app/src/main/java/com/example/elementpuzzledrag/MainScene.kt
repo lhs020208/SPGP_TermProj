@@ -318,7 +318,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             Layer.PUZZLE_BG,
         )
 
-        loadStage(0)
+        loadStage(9)
 
         board = Board(
             gctx = gctx,
@@ -399,6 +399,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 ?: DEFAULT_MONSTER_ATTACK_MOTION_DISTANCE,
             attackMotionSpeed = spec.attackMotionSpeed
                 ?: DEFAULT_MONSTER_ATTACK_MOTION_SPEED,
+            initialRemainingAttackTurns = spec.initialRemainingAttackTurns,
         )
     }
 
