@@ -1,6 +1,8 @@
 package com.example.elementpuzzledrag
 
+import android.graphics.Canvas
 import kr.ac.tukorea.ge.spgp2026.a2dg.objects.AnimSprite
+import kr.ac.tukorea.ge.spgp2026.a2dg.objects.IRecyclable
 import kr.ac.tukorea.ge.spgp2026.a2dg.scene.World
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
 
@@ -11,21 +13,37 @@ enum class AttackEffectKind {
     BIG,
 }
 
-class AttackEffect(
-    gctx: GameContext,
-    private val world: World<Layer>,
-    private val kind: AttackEffectKind,
-    centerX: Float,
-    centerY: Float,
-    private val onFinished: () -> Unit = {},
+class AttackEffect private constructor(
+    private val gameContext: GameContext,
 ) : AnimSprite(
-    gctx = gctx,
-    resId = effectResId(kind),
+    gctx = gameContext,
+    resId = R.mipmap.effect_small,
     fps = EFFECT_FPS,
-    frameCount = effectFrameCount(kind),
-) {
+    frameCount = 16,
+), IRecyclable {
+
     companion object {
         private const val EFFECT_FPS = 30f
+
+        fun get(
+            gctx: GameContext,
+            world: World<Layer>,
+            kind: AttackEffectKind,
+            centerX: Float,
+            centerY: Float,
+            onFinished: () -> Unit = {},
+        ): AttackEffect {
+            val effect = world.obtain(AttackEffect::class.java)
+                ?: AttackEffect(gctx)
+
+            return effect.init(
+                world = world,
+                kind = kind,
+                centerX = centerX,
+                centerY = centerY,
+                onFinished = onFinished,
+            )
+        }
 
         private fun effectResId(kind: AttackEffectKind): Int {
             return when (kind) {
@@ -73,16 +91,38 @@ class AttackEffect(
         }
     }
 
-    private var elapsed = 0f
-    private var finished = false
-    private val duration = effectFrameCount(kind) / EFFECT_FPS
+    private lateinit var world: World<Layer>
 
-    init {
+    private var elapsed = 0f
+    private var duration = 0f
+    private var finished = false
+    private var onFinished: (() -> Unit)? = null
+
+    private fun init(
+        world: World<Layer>,
+        kind: AttackEffectKind,
+        centerX: Float,
+        centerY: Float,
+        onFinished: () -> Unit,
+    ): AttackEffect {
+        this.world = world
+        this.onFinished = onFinished
+
+        bitmap = gameContext.res.getBitmap(effectResId(kind))
+        fps = EFFECT_FPS
+        frameCount = effectFrameCount(kind)
+
+        elapsed = 0f
+        duration = frameCount / EFFECT_FPS
+        finished = false
+
         val drawWidth = effectDrawWidth(kind)
         val drawHeight = drawWidth * effectFrameHeight(kind) / effectFrameWidth(kind)
 
         setSize(drawWidth, drawHeight)
         setCenter(centerX, centerY)
+
+        return this
     }
 
     override fun update(gctx: GameContext) {
@@ -92,8 +132,36 @@ class AttackEffect(
 
         if (elapsed >= duration) {
             finished = true
+
+            val callback = onFinished
+
             world.remove(this, Layer.ATTACK)
-            onFinished()
+            callback?.invoke()
         }
+    }
+
+    override fun draw(canvas: Canvas) {
+        if (finished) return
+
+        syncDstRect()
+
+        val frameIndex = ((elapsed * EFFECT_FPS).toInt())
+            .coerceIn(0, frameCount - 1)
+
+        srcRect?.set(
+            frameIndex * frameWidth,
+            0,
+            (frameIndex + 1) * frameWidth,
+            frameHeight,
+        )
+
+        canvas.drawBitmap(bitmap, srcRect, dstRect, null)
+    }
+
+    override fun onRecycle() {
+        elapsed = 0f
+        duration = 0f
+        finished = false
+        onFinished = null
     }
 }

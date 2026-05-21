@@ -929,7 +929,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     ) {
         activeAttackEffectCount += 1
 
-        val effect = AttackEffect(
+        val effect = AttackEffect.get(
             gctx = gctx,
             world = world,
             kind = kind,
@@ -1046,7 +1046,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             val targetX = attack.target.x
             val targetY = attack.target.y
 
-            val projectile = AttackProjectile(
+            val projectile = AttackProjectile.get(
                 gctx = gctx,
                 world = world,
                 resId = attackProjectileResId(attack.attackAttribute),
