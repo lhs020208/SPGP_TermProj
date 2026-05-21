@@ -254,7 +254,35 @@ class Monster(
         canvas.drawBitmap(turnBitmap, null, dst, null)
     }
 
+    var drawAlpha: Int = 255
+        private set
+
+    fun setDrawAlpha(alpha: Int) {
+        drawAlpha = alpha.coerceIn(0, 255)
+    }
+
     override fun draw(canvas: Canvas) {
+        if (drawAlpha >= 255) {
+            drawMonsterContent(canvas)
+            return
+        }
+
+        if (drawAlpha <= 0) return
+
+        val saveCount = canvas.saveLayerAlpha(
+            0f,
+            0f,
+            gameContext.metrics.width,
+            gameContext.metrics.height,
+            drawAlpha,
+        )
+
+        drawMonsterContent(canvas)
+
+        canvas.restoreToCount(saveCount)
+    }
+
+    private fun drawMonsterContent(canvas: Canvas) {
         canvas.save()
         canvas.translate(0f, bodyOffsetY)
         canvas.scale(bodyScale, bodyScale, x, y + bodyOffsetY)

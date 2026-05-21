@@ -34,6 +34,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         private const val DEFAULT_MONSTER_ATTACK_MOTION_SPEED = 375f
         private const val MONSTER_ATTACK_DELAY_SECONDS = 0.5f
 
+        private const val STAGE_FADE_OUT_SECONDS = 0.25f
+        private const val STAGE_FADE_IN_SECONDS = 0.35f
+        private const val STAGE_MONSTER_FADE_IN_SECONDS = 0.25f
+
         private val BASIC_PLAYER_ATTACK_ORDER = listOf(
             DropType.FIRE,
             DropType.WATER,
@@ -62,6 +66,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 Layer.HOLDING,
                 Layer.OVERLAY,
                 Layer.MONSTER,
+                Layer.STAGE_TRANSITION,
                 Layer.ATTACK,
                 Layer.ATTACK_TEXT,
                 Layer.DIM_OVERLAY,
@@ -76,6 +81,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
                 Layer.HOLDING,
                 Layer.OVERLAY,
                 Layer.MONSTER,
+                Layer.STAGE_TRANSITION,
                 Layer.ATTACK,
                 Layer.ATTACK_TEXT,
                 Layer.DIM_OVERLAY,
@@ -119,6 +125,18 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     private var currentStageIndex = -1
     private var stageBackground: UiSprite? = null
     private var pendingStageAdvance = false
+
+    private enum class StageTransitionPhase {
+        NONE,
+        FADE_OUT_TO_WHITE,
+        FADE_IN_FROM_WHITE,
+        MONSTER_FADE_IN,
+    }
+
+    private var stageTransitionPhase = StageTransitionPhase.NONE
+    private var stageTransitionElapsed = 0f
+    private var stageTransitionTargetIndex = -1
+    private var stageWhiteOverlay: StageWhiteOverlay? = null
 
     private data class MainSceneLayout(
         val screenW: Float,
@@ -318,7 +336,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             Layer.PUZZLE_BG,
         )
 
-        loadStage(9)
+        loadStage(0)
 
         board = Board(
             gctx = gctx,
@@ -346,7 +364,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         }
     }
 
-    private fun loadStage(stageIndex: Int) {
+    private fun loadStage(
+        stageIndex: Int,
+        monsterInitialAlpha: Int = 255,
+    ) {
         if (stageIndex !in stageSpecs.indices) {
             onAllStagesCleared()
             return
@@ -372,7 +393,9 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         world.add(background, Layer.STAGE)
 
         for (monsterSpec in stage.monsters) {
-            addMonster(createMonster(monsterSpec, layout))
+            val monster = createMonster(monsterSpec, layout)
+            monster.setDrawAlpha(monsterInitialAlpha)
+            addMonster(monster)
         }
     }
 
@@ -1466,10 +1489,55 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         val nextStageIndex = currentStageIndex + 1
 
         if (nextStageIndex in stageSpecs.indices) {
-            loadStage(nextStageIndex)
+            startStageTransitionTo(nextStageIndex)
         } else {
             onAllStagesCleared()
         }
+    }
+
+    private fun isStageTransitioning(): Boolean {
+        return stageTransitionPhase != StageTransitionPhase.NONE
+    }
+
+    private fun startStageTransitionTo(nextStageIndex: Int) {
+        if (nextStageIndex !in stageSpecs.indices) {
+            onAllStagesCleared()
+            return
+        }
+
+        val layout = makeLayout()
+
+        val overlay = StageWhiteOverlay(
+            left = 0f,
+            top = layout.stageTop,
+            width = layout.screenW,
+            height = layout.stageHeight,
+        )
+
+        overlay.alpha = 0
+
+        stageWhiteOverlay = overlay
+        world.add(overlay, Layer.STAGE_TRANSITION)
+
+        stageTransitionTargetIndex = nextStageIndex
+        stageTransitionElapsed = 0f
+        stageTransitionPhase = StageTransitionPhase.FADE_OUT_TO_WHITE
+
+        attackTargetLocked = true
+    }
+
+    private fun setCurrentStageMonsterAlpha(alpha: Int) {
+        for (monster in monsters) {
+            monster.setDrawAlpha(alpha)
+        }
+    }
+
+    private fun removeStageWhiteOverlay() {
+        stageWhiteOverlay?.let { overlay ->
+            world.remove(overlay, Layer.STAGE_TRANSITION)
+        }
+
+        stageWhiteOverlay = null
     }
 
     private fun onAllStagesCleared() {
@@ -1483,16 +1551,99 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
         waitingMonsterAttackDelay = false
         monsterAttackDelayRemaining = 0f
         currentMonsterAttackDelaySeconds = MONSTER_ATTACK_DELAY_SECONDS
-        attackTargetLocked = false
 
         if (pendingStageAdvance) {
             pendingStageAdvance = false
             loadNextStageOrFinish()
+            return
+        }
+
+        attackTargetLocked = false
+    }
+
+    private fun updateStageTransition(frameTime: Float) {
+        val overlay = stageWhiteOverlay
+
+        when (stageTransitionPhase) {
+            StageTransitionPhase.NONE -> return
+
+            StageTransitionPhase.FADE_OUT_TO_WHITE -> {
+                if (overlay == null) {
+                    stageTransitionPhase = StageTransitionPhase.NONE
+                    return
+                }
+
+                stageTransitionElapsed += frameTime
+
+                val t = (stageTransitionElapsed / STAGE_FADE_OUT_SECONDS)
+                    .coerceIn(0f, 1f)
+
+                overlay.alpha = (255f * t).roundToInt()
+
+                if (t >= 1f) {
+                    overlay.alpha = 255
+
+                    loadStage(
+                        stageIndex = stageTransitionTargetIndex,
+                        monsterInitialAlpha = 0,
+                    )
+
+                    stageTransitionElapsed = 0f
+                    stageTransitionPhase = StageTransitionPhase.FADE_IN_FROM_WHITE
+                }
+            }
+
+            StageTransitionPhase.FADE_IN_FROM_WHITE -> {
+                if (overlay == null) {
+                    stageTransitionPhase = StageTransitionPhase.NONE
+                    return
+                }
+
+                stageTransitionElapsed += frameTime
+
+                val t = (stageTransitionElapsed / STAGE_FADE_IN_SECONDS)
+                    .coerceIn(0f, 1f)
+
+                overlay.alpha = (255f * (1f - t)).roundToInt()
+
+                if (t >= 1f) {
+                    removeStageWhiteOverlay()
+
+                    setCurrentStageMonsterAlpha(0)
+
+                    stageTransitionElapsed = 0f
+                    stageTransitionPhase = StageTransitionPhase.MONSTER_FADE_IN
+                }
+            }
+
+            StageTransitionPhase.MONSTER_FADE_IN -> {
+                stageTransitionElapsed += frameTime
+
+                val t = (stageTransitionElapsed / STAGE_MONSTER_FADE_IN_SECONDS)
+                    .coerceIn(0f, 1f)
+
+                val alpha = (255f * t).roundToInt()
+                setCurrentStageMonsterAlpha(alpha)
+
+                if (t >= 1f) {
+                    setCurrentStageMonsterAlpha(255)
+
+                    stageTransitionTargetIndex = -1
+                    stageTransitionElapsed = 0f
+                    stageTransitionPhase = StageTransitionPhase.NONE
+                    attackTargetLocked = false
+                }
+            }
         }
     }
 
     override fun update(gctx: GameContext) {
         super.update(gctx)
+
+        if (isStageTransitioning()) {
+            updateStageTransition(gctx.frameTime)
+            return
+        }
 
         if (waitingMonsterAttackDelay) {
             updateMonsterAttackDelay(gctx.frameTime)
@@ -1516,6 +1667,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (
+            isStageTransitioning() ||
             playerAttackAnimating ||
             monsterAttackAnimating ||
             waitingMonsterAttackDelay ||

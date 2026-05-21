@@ -57,7 +57,7 @@ object StageData {
                     centerYOffsetFromStageCenter = 100f,
                 ),
             ),
-        ),
+        ), // 1
         StageSpec(
             backgroundResId = R.mipmap.stage2,
             monsters = listOf(
@@ -82,7 +82,7 @@ object StageData {
                     centerYOffsetFromStageCenter = 99f,
                 ),
             ),
-        ),
+        ), // 2
         StageSpec(
             backgroundResId = R.mipmap.stage3,
             monsters = listOf(
@@ -117,7 +117,7 @@ object StageData {
                     centerYOffsetFromStageCenter = 70f,
                 ),
             ),
-        ),
+        ), // 3
         StageSpec(
             backgroundResId = R.mipmap.stage4,
             monsters = listOf(
@@ -132,7 +132,7 @@ object StageData {
                     centerYOffsetFromStageCenter = 10f,
                 ),
             ),
-        ),
+        ), // 4
         StageSpec(
             backgroundResId = R.mipmap.stage5,
             monsters = listOf(
@@ -167,7 +167,7 @@ object StageData {
                     centerYOffsetFromStageCenter = -130f,
                 ),
             ),
-        ),
+        ), // 5
         StageSpec(
             backgroundResId = R.mipmap.stage6,
             monsters = listOf(
@@ -192,7 +192,7 @@ object StageData {
                     centerYOffsetFromStageCenter = 10f,
                 ),
             ),
-        ),
+        ), // 6
         StageSpec(
             backgroundResId = R.mipmap.stage7,
             monsters = listOf(
@@ -227,7 +227,7 @@ object StageData {
                     centerYOffsetFromStageCenter = 50f,
                 ),
             ),
-        ),
+        ), // 7
         StageSpec(
             backgroundResId = R.mipmap.stage8,
             monsters = listOf(
@@ -253,7 +253,7 @@ object StageData {
                     centerYOffsetFromStageCenter = 5f,
                 ),
             ),
-        ),
+        ), // 8
         StageSpec(
             backgroundResId = R.mipmap.stage9,
             monsters = listOf(
@@ -289,7 +289,7 @@ object StageData {
                     centerYOffsetFromStageCenter = 110f,
                 ),
             ),
-        ),
+        ), // 9
         StageSpec(
             backgroundResId = R.mipmap.stage10,
             monsters = listOf(
@@ -326,6 +326,6 @@ object StageData {
                     centerYOffsetFromStageCenter = 150f,
                 ),
             ),
-        ),
+        ), // 10
     )
 }

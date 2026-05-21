@@ -8,6 +8,7 @@ enum class Layer {
     HOLDING,
     OVERLAY,
     MONSTER,
+    STAGE_TRANSITION,
     ATTACK,
     ATTACK_TEXT,
     DIM_OVERLAY,
