@@ -7,7 +7,10 @@ import android.view.MotionEvent
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
-class MainScene(gctx: GameContext) : Scene(gctx) {
+class MainScene(
+    gctx: GameContext,
+    private val initialStageIndex: Int = 0,
+) : Scene(gctx) {
 
     companion object {
         private const val SHOW_HIDDEN_DROPS_FOR_DEBUG = false
@@ -336,7 +339,9 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
             Layer.PUZZLE_BG,
         )
 
-        loadStage(0)
+        loadStage(
+            initialStageIndex.coerceIn(0, stageSpecs.lastIndex)
+        )
 
         board = Board(
             gctx = gctx,

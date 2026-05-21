@@ -1,21 +1,29 @@
 package com.example.elementpuzzledrag
 
-import android.os.Bundle
-import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import kr.ac.tukorea.ge.spgp2026.a2dg.activity.BaseGameActivity
 import kr.ac.tukorea.ge.spgp2026.a2dg.scene.Scene
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
 
 class ElementPuzzleDrag : BaseGameActivity() {
+
+    companion object {
+        const val EXTRA_INITIAL_STAGE_INDEX = "initial_stage_index"
+    }
+
     override val drawsDebugGrid: Boolean = true
     override val drawsDebugInfo: Boolean = true
     override val drawsFpsGraph: Boolean = true
 
     override fun createRootScene(gctx: GameContext): Scene {
         gctx.metrics.setSize(900f, 1600f)
-        return MainScene(gctx)
+
+        val initialStageIndex = intent
+            .getIntExtra(EXTRA_INITIAL_STAGE_INDEX, 0)
+            .coerceIn(0, StageData.stages.lastIndex)
+
+        return MainScene(
+            gctx = gctx,
+            initialStageIndex = initialStageIndex,
+        )
     }
 }
