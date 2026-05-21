@@ -12,10 +12,10 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     companion object {
         private const val SHOW_HIDDEN_DROPS_FOR_DEBUG = false
         private const val PLAYER_ATTACK_BASE_CONSTANT = 10f
-        private const val PLAYER_HEAL_BASE_CONSTANT = 100f
+        private const val PLAYER_HEAL_BASE_CONSTANT = 120f
         private const val DEFAULT_SKILL_MULTIPLIER = 1f
-        private const val ATTACK_UP_SKILL_MULTIPLIER = 1.5f
-        private const val RECOVER_UP_SKILL_MULTIPLIER = 1.5f
+        private const val ATTACK_UP_SKILL_MULTIPLIER = 2f
+        private const val RECOVER_UP_SKILL_MULTIPLIER = 2f
 
         private const val ATTACK_PROJECTILE_SIZE_RATIO = 0.72f
         private const val ATTACK_PROJECTILE_MIN_SPEED = 780f
