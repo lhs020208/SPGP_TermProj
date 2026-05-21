@@ -5,17 +5,14 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import kr.ac.tukorea.ge.spgp2026.a2dg.objects.IGameObject
+import kr.ac.tukorea.ge.spgp2026.a2dg.objects.IRecyclable
 import kr.ac.tukorea.ge.spgp2026.a2dg.scene.World
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
 import kotlin.math.roundToInt
 
-class PlayerHealText(
-    private val gctx: GameContext,
-    private val world: World<Layer>,
-    healAmount: Int,
-    centerX: Float,
-    centerY: Float,
-) : IGameObject {
+class PlayerHealText private constructor(
+    private val gameContext: GameContext,
+) : IGameObject, IRecyclable {
 
     companion object {
         private const val TEXT_WIDTH = 150f
@@ -23,9 +20,35 @@ class PlayerHealText(
         private const val DURATION = 0.5f
         private const val MOVE_DISTANCE = 50f
         private const val SCREEN_MARGIN = 8f
+
+        fun get(
+            gctx: GameContext,
+            world: World<Layer>,
+            healAmount: Int,
+            centerX: Float,
+            centerY: Float,
+        ): PlayerHealText {
+            val text = world.obtain(PlayerHealText::class.java)
+                ?: PlayerHealText(gctx)
+
+            return text.init(
+                world = world,
+                healAmount = healAmount,
+                centerX = centerX,
+                centerY = centerY,
+            )
+        }
     }
 
-    private val text = "+$healAmount"
+    private lateinit var world: World<Layer>
+
+    private var text = ""
+    private var startX = 0f
+    private var startY = 0f
+    private var x = 0f
+    private var y = 0f
+    private var elapsed = 0f
+    private var finished = false
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.rgb(0x00, 0xFF, 0x00)
@@ -35,25 +58,41 @@ class PlayerHealText(
         alpha = 255
     }
 
-    private val startX: Float
-    private val startY = centerY
-    private var x = centerX
-    private var y = centerY
-    private var elapsed = 0f
-    private var finished = false
+    private fun init(
+        world: World<Layer>,
+        healAmount: Int,
+        centerX: Float,
+        centerY: Float,
+    ): PlayerHealText {
+        this.world = world
 
-    init {
+        text = "+$healAmount"
+
         val minX = SCREEN_MARGIN + TEXT_WIDTH / 2f
-        val maxX = gctx.metrics.width - SCREEN_MARGIN - TEXT_WIDTH / 2f
+        val maxX = gameContext.metrics.width - SCREEN_MARGIN - TEXT_WIDTH / 2f
 
         startX = if (minX <= maxX) {
             centerX.coerceIn(minX, maxX)
         } else {
-            gctx.metrics.width / 2f
+            gameContext.metrics.width / 2f
         }
 
+        startY = centerY
         x = startX
+        y = startY
+
+        elapsed = 0f
+        finished = false
+
+        paint.color = Color.rgb(0x00, 0xFF, 0x00)
+        paint.textAlign = Paint.Align.CENTER
+        paint.typeface = Typeface.DEFAULT_BOLD
+        paint.textSize = TEXT_HEIGHT
+        paint.alpha = 255
+
         fitTextWidthIfNeeded()
+
+        return this
     }
 
     private fun fitTextWidthIfNeeded() {
@@ -69,6 +108,7 @@ class PlayerHealText(
         if (finished) return
 
         elapsed += gctx.frameTime
+
         val t = (elapsed / DURATION).coerceIn(0f, 1f)
 
         x = startX
@@ -91,5 +131,18 @@ class PlayerHealText(
                 (paint.fontMetrics.ascent + paint.fontMetrics.descent) / 2f
 
         canvas.drawText(text, x, baseline, paint)
+    }
+
+    override fun onRecycle() {
+        text = ""
+        startX = 0f
+        startY = 0f
+        x = 0f
+        y = 0f
+        elapsed = 0f
+        finished = false
+
+        paint.alpha = 255
+        paint.textScaleX = 1f
     }
 }

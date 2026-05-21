@@ -1242,7 +1242,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
     ) {
         if (attack.damage <= 0) return
 
-        val damageText = PlayerAttackDamageText(
+        val damageText = PlayerAttackDamageText.get(
             world = world,
             damage = attack.damage,
             color = attributeColor(attack.attackAttribute),
@@ -1311,7 +1311,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
 
         val (centerX, centerY) = playerHpBar.getCurrentHpRightCenter()
 
-        val damageText = PlayerDamageText(
+        val damageText = PlayerDamageText.get(
             gctx = gctx,
             world = world,
             damage = damage,
@@ -1327,7 +1327,7 @@ class MainScene(gctx: GameContext) : Scene(gctx) {
 
         val (centerX, centerY) = playerHpBar.getCurrentHpRightCenter()
 
-        val healText = PlayerHealText(
+        val healText = PlayerHealText.get(
             gctx = gctx,
             world = world,
             healAmount = healAmount,
