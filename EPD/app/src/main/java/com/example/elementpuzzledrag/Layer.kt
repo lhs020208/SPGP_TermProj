@@ -13,4 +13,5 @@ enum class Layer {
     ATTACK_TEXT,
     DIM_OVERLAY,
     SKILL_UI,
+    GAME_CLEAR_TRANSITION,
 }

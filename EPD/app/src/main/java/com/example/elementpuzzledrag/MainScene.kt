@@ -36,6 +36,7 @@ class MainScene(
         private const val DEFAULT_MONSTER_ATTACK_MOTION_DISTANCE = 30f
         private const val DEFAULT_MONSTER_ATTACK_MOTION_SPEED = 375f
         private const val MONSTER_ATTACK_DELAY_SECONDS = 0.5f
+        private const val GAME_CLEAR_FADE_OUT_SECONDS = 0.6f
 
         private const val STAGE_FADE_OUT_SECONDS = 0.25f
         private const val STAGE_FADE_IN_SECONDS = 0.35f
@@ -74,6 +75,7 @@ class MainScene(
                 Layer.ATTACK_TEXT,
                 Layer.DIM_OVERLAY,
                 Layer.SKILL_UI,
+                Layer.GAME_CLEAR_TRANSITION,
             )
         } else {
             arrayOf(
@@ -89,6 +91,7 @@ class MainScene(
                 Layer.ATTACK_TEXT,
                 Layer.DIM_OVERLAY,
                 Layer.SKILL_UI,
+                Layer.GAME_CLEAR_TRANSITION,
             )
         }
     )
@@ -128,6 +131,10 @@ class MainScene(
     private var currentStageIndex = -1
     private var stageBackground: UiSprite? = null
     private var pendingStageAdvance = false
+
+    private var gameClearTransitioning = false
+    private var gameClearFadeElapsed = 0f
+    private var gameClearFadeOverlay: FullScreenFadeOverlay? = null
 
     private enum class StageTransitionPhase {
         NONE,
@@ -1546,9 +1553,63 @@ class MainScene(
     }
 
     private fun onAllStagesCleared() {
-        // TODO:
-        // 모든 스테이지 클리어 처리.
-        // 지금은 1스테이지만 있으므로 배경은 그대로 두고 몬스터 없는 상태로 둔다.
+        startGameClearTransition()
+    }
+
+    private fun startGameClearTransition() {
+        if (gameClearTransitioning) return
+
+        clearSkillIcons()
+        clearDropChangeSelecting()
+        clearAttackTarget()
+
+        monsterAttackQueue.clear()
+        monsterAttackAnimating = false
+        waitingMonsterAttackDelay = false
+        monsterAttackDelayRemaining = 0f
+
+        attackTargetLocked = true
+
+        val overlay = FullScreenFadeOverlay(gctx)
+        overlay.alpha = 0
+
+        gameClearFadeOverlay = overlay
+        world.add(overlay, Layer.GAME_CLEAR_TRANSITION)
+
+        gameClearFadeElapsed = 0f
+        gameClearTransitioning = true
+    }
+
+    private fun updateGameClearTransition(frameTime: Float) {
+        if (!gameClearTransitioning) return
+
+        val overlay = gameClearFadeOverlay
+        if (overlay == null) {
+            changeToGameClearScene()
+            return
+        }
+
+        gameClearFadeElapsed += frameTime
+
+        val t = (gameClearFadeElapsed / GAME_CLEAR_FADE_OUT_SECONDS)
+            .coerceIn(0f, 1f)
+
+        overlay.alpha = (255f * t).roundToInt().coerceIn(0, 255)
+
+        if (t >= 1f) {
+            overlay.alpha = 255
+            changeToGameClearScene()
+        }
+    }
+
+    private fun changeToGameClearScene() {
+        gameClearTransitioning = false
+        gameClearFadeElapsed = 0f
+        gameClearFadeOverlay = null
+
+        gctx.sceneStack.change(
+            GameClearScene(gctx)
+        )
     }
 
     private fun finishMonsterActionPhase() {
@@ -1645,6 +1706,11 @@ class MainScene(
     override fun update(gctx: GameContext) {
         super.update(gctx)
 
+        if (gameClearTransitioning) {
+            updateGameClearTransition(gctx.frameTime)
+            return
+        }
+
         if (isStageTransitioning()) {
             updateStageTransition(gctx.frameTime)
             return
@@ -1672,6 +1738,7 @@ class MainScene(
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (
+            gameClearTransitioning ||
             isStageTransitioning() ||
             playerAttackAnimating ||
             monsterAttackAnimating ||
