@@ -136,6 +136,10 @@ class MainScene(
     private var gameClearFadeElapsed = 0f
     private var gameClearFadeOverlay: FullScreenFadeOverlay? = null
 
+    private var gameOverTransitioning = false
+    private var gameOverFadeElapsed = 0f
+    private var gameOverFadeOverlay: FullScreenFadeOverlay? = null
+
     private enum class StageTransitionPhase {
         NONE,
         FADE_OUT_TO_WHITE,
@@ -1371,8 +1375,7 @@ class MainScene(
     }
 
     private fun onPlayerDead() {
-        // TODO:
-        // 게임오버 구현 시 여기서 처리한다.
+        startGameOverTransition()
     }
 
     private fun willPlayerDieFromQueuedMonsterAttacks(): Boolean {
@@ -1463,9 +1466,16 @@ class MainScene(
 
         val started = monster.startAttackMotion(
             onHit = {
-                monsterAttackPlayer(monster)
+                if (!gameOverTransitioning && !gameClearTransitioning) {
+                    monsterAttackPlayer(monster)
+                }
             },
             onFinished = {
+                if (gameOverTransitioning || gameClearTransitioning) {
+                    monsterAttackAnimating = false
+                    return@startAttackMotion
+                }
+
                 monster.resetAttackTurn(monster.MaxremainingAttackTurns)
                 monsterAttackAnimating = false
                 startNextMonsterAttackOrFinish()
@@ -1473,7 +1483,15 @@ class MainScene(
         )
 
         if (!started) {
-            monsterAttackPlayer(monster)
+            if (!gameOverTransitioning && !gameClearTransitioning) {
+                monsterAttackPlayer(monster)
+            }
+
+            if (gameOverTransitioning || gameClearTransitioning) {
+                monsterAttackAnimating = false
+                return
+            }
+
             monster.resetAttackTurn(monster.MaxremainingAttackTurns)
             monsterAttackAnimating = false
             startNextMonsterAttackOrFinish()
@@ -1578,6 +1596,63 @@ class MainScene(
 
         gameClearFadeElapsed = 0f
         gameClearTransitioning = true
+    }
+
+    private fun startGameOverTransition() {
+        if (gameOverTransitioning) return
+        if (gameClearTransitioning) return
+
+        clearSkillIcons()
+        clearDropChangeSelecting()
+        clearAttackTarget()
+
+        monsterAttackQueue.clear()
+        monsterAttackAnimating = false
+        waitingMonsterAttackDelay = false
+        monsterAttackDelayRemaining = 0f
+
+        attackTargetLocked = true
+
+        val overlay = FullScreenFadeOverlay(gctx)
+        overlay.alpha = 0
+
+        gameOverFadeOverlay = overlay
+        world.add(overlay, Layer.GAME_CLEAR_TRANSITION)
+
+        gameOverFadeElapsed = 0f
+        gameOverTransitioning = true
+    }
+
+    private fun updateGameOverTransition(frameTime: Float) {
+        if (!gameOverTransitioning) return
+
+        val overlay = gameOverFadeOverlay
+        if (overlay == null) {
+            changeToGameOverScene()
+            return
+        }
+
+        gameOverFadeElapsed += frameTime
+
+        val t = (gameOverFadeElapsed / GAME_CLEAR_FADE_OUT_SECONDS)
+            .coerceIn(0f, 1f)
+
+        overlay.alpha = (255f * t).roundToInt().coerceIn(0, 255)
+
+        if (t >= 1f) {
+            overlay.alpha = 255
+            changeToGameOverScene()
+        }
+    }
+
+    private fun changeToGameOverScene() {
+        gameOverTransitioning = false
+        gameOverFadeElapsed = 0f
+        gameOverFadeOverlay = null
+
+        gctx.sceneStack.change(
+            GameOverScene(gctx)
+        )
     }
 
     private fun updateGameClearTransition(frameTime: Float) {
@@ -1706,6 +1781,11 @@ class MainScene(
     override fun update(gctx: GameContext) {
         super.update(gctx)
 
+        if (gameOverTransitioning) {
+            updateGameOverTransition(gctx.frameTime)
+            return
+        }
+
         if (gameClearTransitioning) {
             updateGameClearTransition(gctx.frameTime)
             return
@@ -1738,6 +1818,7 @@ class MainScene(
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (
+            gameOverTransitioning ||
             gameClearTransitioning ||
             isStageTransitioning() ||
             playerAttackAnimating ||
