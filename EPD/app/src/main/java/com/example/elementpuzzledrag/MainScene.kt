@@ -36,6 +36,7 @@ class MainScene(
         private const val DEFAULT_MONSTER_ATTACK_MOTION_DISTANCE = 30f
         private const val DEFAULT_MONSTER_ATTACK_MOTION_SPEED = 375f
         private const val MONSTER_ATTACK_DELAY_SECONDS = 0.5f
+        private const val PLAYER_ATTACK_START_DELAY_SECONDS = 1.0f
         private const val GAME_CLEAR_FADE_OUT_SECONDS = 0.6f
 
         private const val STAGE_FADE_OUT_SECONDS = 0.25f
@@ -216,6 +217,12 @@ class MainScene(
     private var activeAttackEffectCount = 0
     private var playerAttackAnimating = false
     private var playerAttackDamageApplied = false
+
+    private var waitingPlayerAttackStartDelay = false
+    private var playerAttackStartDelayRemaining = 0f
+    private var delayedPlayerAttacks: List<PendingPlayerAttack> = emptyList()
+    private var delayedPlayerHealAmount = 0
+
     private val monsterAttackQueue = ArrayDeque<Monster>()
     private var monsterAttackAnimating = false
     private var waitingMonsterAttackDelay = false
@@ -224,6 +231,8 @@ class MainScene(
 
     init {
         initSkillCooldowns()
+
+        gctx.res.sound.preloadEffect(R.raw.attackon)
 
         val layout = makeLayout()
 
@@ -481,8 +490,12 @@ class MainScene(
         }
     }
 
+    private fun getElementSlot(type: DropType): ElementSlot? {
+        return elementSlots.firstOrNull { it.elementType == type }
+    }
+
     private fun getElementSlotCenter(type: DropType): Pair<Float, Float> {
-        val slot = elementSlots.firstOrNull { it.elementType == type }
+        val slot = getElementSlot(type)
             ?: return gctx.metrics.width / 2f to 0f
 
         return slot.slotLeft + slot.slotWidth / 2f to
@@ -490,7 +503,7 @@ class MainScene(
     }
 
     private fun getAttackProjectileSize(type: DropType): Float {
-        val slot = elementSlots.firstOrNull { it.elementType == type }
+        val slot = getElementSlot(type)
             ?: return 100f
 
         return kotlin.math.min(slot.slotWidth, slot.slotHeight) * ATTACK_PROJECTILE_SIZE_RATIO
@@ -1032,6 +1045,65 @@ class MainScene(
         plannedHp: Map<Monster, Int>,
     ): List<Monster> {
         return monsters.filter { (plannedHp[it] ?: it.hp) > 0 }
+    }
+
+    private fun spawnAttackOnEffects(attacks: List<PendingPlayerAttack>) {
+        val attackAttributes = attacks
+            .map { it.attackAttribute }
+            .distinct()
+
+        if (attackAttributes.isEmpty()) return
+
+        gctx.res.sound.playEffect(R.raw.attackon)
+
+        for (attackAttribute in attackAttributes) {
+            val slot = getElementSlot(attackAttribute) ?: continue
+
+            val effect = AttackOnEffect.get(
+                gctx = gctx,
+                world = world,
+                slot = slot,
+                durationSeconds = PLAYER_ATTACK_START_DELAY_SECONDS,
+            )
+
+            world.add(effect, Layer.SKILL_UI)
+        }
+    }
+
+    private fun startPlayerAttackStartDelay(
+        attacks: List<PendingPlayerAttack>,
+        healAmount: Int,
+    ) {
+        waitingPlayerAttackStartDelay = true
+        playerAttackStartDelayRemaining = PLAYER_ATTACK_START_DELAY_SECONDS
+        delayedPlayerAttacks = attacks
+        delayedPlayerHealAmount = healAmount
+
+        spawnAttackOnEffects(attacks)
+    }
+
+    private fun clearPlayerAttackStartDelay() {
+        waitingPlayerAttackStartDelay = false
+        playerAttackStartDelayRemaining = 0f
+        delayedPlayerAttacks = emptyList()
+        delayedPlayerHealAmount = 0
+    }
+
+    private fun updatePlayerAttackStartDelay(frameTime: Float) {
+        if (!waitingPlayerAttackStartDelay) return
+
+        playerAttackStartDelayRemaining -= frameTime
+        if (playerAttackStartDelayRemaining > 0f) return
+
+        val attacks = delayedPlayerAttacks
+        val healAmount = delayedPlayerHealAmount
+
+        clearPlayerAttackStartDelay()
+
+        startPlayerAttackAnimations(
+            attacks = attacks,
+            healAmount = healAmount,
+        )
     }
 
     private fun startPlayerAttackAnimations(
@@ -1844,6 +1916,11 @@ class MainScene(
             return
         }
 
+        if (waitingPlayerAttackStartDelay) {
+            updatePlayerAttackStartDelay(gctx.frameTime)
+            return
+        }
+
         if (playerAttackAnimating || monsterAttackAnimating || monsterAttackQueue.isNotEmpty()) {
             return
         }
@@ -1853,7 +1930,7 @@ class MainScene(
         val attacks = planPlayerAttacks(attackResult)
         val healAmount = calculatePlayerHealAmount(attackResult)
 
-        startPlayerAttackAnimations(
+        startPlayerAttackStartDelay(
             attacks = attacks,
             healAmount = healAmount,
         )
@@ -1864,6 +1941,7 @@ class MainScene(
             gameOverTransitioning ||
             gameClearTransitioning ||
             isStageTransitioning() ||
+            waitingPlayerAttackStartDelay ||
             playerAttackAnimating ||
             monsterAttackAnimating ||
             waitingMonsterAttackDelay ||
