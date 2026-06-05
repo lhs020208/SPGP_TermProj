@@ -91,6 +91,7 @@ class Board(
 
     init {
         gctx.res.sound.preloadEffect(R.raw.swap)
+        gctx.res.sound.preloadEffect(R.raw.chaincount)
         fillInitialDrops()
     }
 
@@ -535,6 +536,10 @@ class Board(
         world.add(chainText, Layer.OVERLAY)
     }
 
+    private fun playChainCountEffect() {
+        gctx.res.sound.playEffect(R.raw.chaincount)
+    }
+
     private fun recordRemovedMatchGroup(group: MatchGroup, removedCount: Int) {
         if (removedCount <= 0) return
 
@@ -543,6 +548,7 @@ class Board(
         attackResultReady = false
 
         showChainText(group, chainCount)
+        playChainCountEffect()
     }
 
     private fun removeMatchGroup(group: MatchGroup) {
