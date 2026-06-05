@@ -1,9 +1,13 @@
 package kr.ac.tukorea.ge.spgp2026.a2dg.res
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.media.SoundPool
+import android.view.animation.LinearInterpolator
 
 // Sound 는 게임에서 쓰는 짧은 효과음과 반복 배경음을 다루는 helper 이다.
 //
@@ -26,18 +30,78 @@ class Sound(
     private var soundPool: SoundPool? = null
     private val soundIds = mutableMapOf<Int, Int>()
 
+    private var musicFadeAnimator: ValueAnimator? = null
+
     fun playMusic(resId: Int) {
         stopMusic()
+
         mediaPlayer = MediaPlayer.create(appContext, resId).apply {
             isLooping = true
+            setVolume(VOLUME, VOLUME)
             start()
         }
     }
 
     fun stopMusic() {
+        musicFadeAnimator?.cancel()
+        musicFadeAnimator = null
+
         mediaPlayer?.stop()
         mediaPlayer?.release()
         mediaPlayer = null
+    }
+
+    fun fadeOutMusic(
+        seconds: Float,
+        onFinished: () -> Unit,
+    ) {
+        val player = mediaPlayer
+        if (player == null) {
+            onFinished()
+            return
+        }
+
+        musicFadeAnimator?.cancel()
+        musicFadeAnimator = null
+
+        val durationMillis = (seconds * 1000f).toLong().coerceAtLeast(0L)
+        if (durationMillis <= 0L) {
+            stopMusic()
+            onFinished()
+            return
+        }
+
+        val animator = ValueAnimator.ofFloat(VOLUME, 0f).apply {
+            duration = durationMillis
+            interpolator = LinearInterpolator()
+
+            addUpdateListener {
+                val volume = it.animatedValue as Float
+                player.setVolume(volume, volume)
+            }
+
+            addListener(object : AnimatorListenerAdapter() {
+                private var canceled = false
+
+                override fun onAnimationCancel(animation: Animator) {
+                    canceled = true
+                }
+
+                override fun onAnimationEnd(animation: Animator) {
+                    if (musicFadeAnimator === animation) {
+                        musicFadeAnimator = null
+                    }
+
+                    if (canceled) return
+
+                    stopMusic()
+                    onFinished()
+                }
+            })
+        }
+
+        musicFadeAnimator = animator
+        animator.start()
     }
 
     fun pauseMusic() {

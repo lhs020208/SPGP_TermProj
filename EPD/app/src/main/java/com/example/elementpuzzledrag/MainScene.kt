@@ -42,6 +42,9 @@ class MainScene(
         private const val STAGE_FADE_IN_SECONDS = 0.35f
         private const val STAGE_MONSTER_FADE_IN_SECONDS = 0.25f
 
+        private const val HARD_BGM_FIRST_STAGE_INDEX = 5
+        private const val BGM_FADE_OUT_SECONDS = 1.0f
+
         private val BASIC_PLAYER_ATTACK_ORDER = listOf(
             DropType.FIRE,
             DropType.WATER,
@@ -139,6 +142,9 @@ class MainScene(
     private var gameOverTransitioning = false
     private var gameOverFadeElapsed = 0f
     private var gameOverFadeOverlay: FullScreenFadeOverlay? = null
+
+    private var currentBgmResId = 0
+    private var bgmSwitching = false
 
     private enum class StageTransitionPhase {
         NONE,
@@ -1520,6 +1526,7 @@ class MainScene(
 
         if (nextStageIndex in stageSpecs.indices) {
             startStageTransitionTo(nextStageIndex)
+            updateBgmAfterStageChanged()
         } else {
             onAllStagesCleared()
         }
@@ -1572,6 +1579,42 @@ class MainScene(
 
     private fun onAllStagesCleared() {
         startGameClearTransition()
+    }
+
+    override fun onEnter() {
+        super.onEnter()
+        playStageBgmImmediately()
+    }
+
+    private fun bgmResIdForStageIndex(stageIndex: Int): Int {
+        return if (stageIndex < HARD_BGM_FIRST_STAGE_INDEX) {
+            R.raw.bgm_normal
+        } else {
+            R.raw.bgm_hard
+        }
+    }
+
+    private fun playStageBgmImmediately() {
+        val bgmResId = bgmResIdForStageIndex(currentStageIndex)
+        if (currentBgmResId == bgmResId) return
+
+        currentBgmResId = bgmResId
+        bgmSwitching = false
+        gctx.res.sound.playMusic(bgmResId)
+    }
+
+    private fun updateBgmAfterStageChanged() {
+        val nextBgmResId = bgmResIdForStageIndex(currentStageIndex)
+        if (currentBgmResId == nextBgmResId) return
+
+        if (bgmSwitching) return
+        bgmSwitching = true
+        currentBgmResId = nextBgmResId
+
+        gctx.res.sound.fadeOutMusic(BGM_FADE_OUT_SECONDS) {
+            bgmSwitching = false
+            gctx.res.sound.playMusic(nextBgmResId)
+        }
     }
 
     private fun startGameClearTransition() {

@@ -95,6 +95,7 @@ class GameView @JvmOverloads constructor(
         // 이 경우에는 Scene 들의 onExit() 만 실행하고, onEmptyStack callback 으로 finish() 를 다시 요청하지 않는다.
         // 앱 내부 Exit 로 먼저 popAll(true) 가 실행된 뒤라면 stack 은 이미 비어 있을 수 있는데,
         // 그 경우에도 popAll(false) 는 빈 stack 을 정리하려는 안전한 no-op 으로 끝난다.
+        gctx.res.sound.release()
         gctx.sceneStack.popAll(finishesActivity = false)
     }
 
