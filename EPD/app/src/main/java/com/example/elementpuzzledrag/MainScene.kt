@@ -234,6 +234,9 @@ class MainScene(
 
         gctx.res.sound.preloadEffect(R.raw.attackon)
         gctx.res.sound.preloadEffect(R.raw.attack)
+        gctx.res.sound.preloadEffect(R.raw.boom1)
+        gctx.res.sound.preloadEffect(R.raw.boom2)
+        gctx.res.sound.preloadEffect(R.raw.boom3)
 
         val layout = makeLayout()
 
@@ -958,12 +961,23 @@ class MainScene(
         return attacks
     }
 
+    private fun attackEffectSoundResId(kind: AttackEffectKind): Int {
+        return when (kind) {
+            AttackEffectKind.BIG -> R.raw.boom1
+            AttackEffectKind.NORMAL1,
+            AttackEffectKind.NORMAL2 -> R.raw.boom2
+            AttackEffectKind.SMALL -> R.raw.boom3
+        }
+    }
+
     private fun spawnAttackEffect(
         kind: AttackEffectKind,
         centerX: Float,
         centerY: Float,
     ) {
         activeAttackEffectCount += 1
+
+        gctx.res.sound.playEffect(attackEffectSoundResId(kind))
 
         val effect = AttackEffect.get(
             gctx = gctx,
