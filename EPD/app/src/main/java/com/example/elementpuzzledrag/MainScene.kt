@@ -233,6 +233,7 @@ class MainScene(
         initSkillCooldowns()
 
         gctx.res.sound.preloadEffect(R.raw.attackon)
+        gctx.res.sound.preloadEffect(R.raw.attack)
 
         val layout = makeLayout()
 
@@ -1167,6 +1168,7 @@ class MainScene(
                 },
             )
 
+            gctx.res.sound.playEffect(R.raw.attack)
             world.add(projectile, Layer.ATTACK)
         }
     }
