@@ -112,6 +112,14 @@ class Sound(
         mediaPlayer?.start()
     }
 
+    fun preloadEffect(resId: Int) {
+        val pool = getSoundPool()
+        if (soundIds.containsKey(resId)) return
+
+        val soundId = pool.load(appContext, resId, PRIORITY)
+        soundIds[resId] = soundId
+    }
+
     fun playEffect(resId: Int) {
         val pool = getSoundPool()
         val soundId = soundIds[resId] ?: pool.load(appContext, resId, PRIORITY).also {

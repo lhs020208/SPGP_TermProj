@@ -33,6 +33,8 @@ class Board(
         private const val DIAGONAL_SWAP_THRESHOLD = 55f
         private const val SWAP_ANIMATION_DURATION = 0.08f
         private const val GRAVITY_ANIMATION_DURATION = SWAP_ANIMATION_DURATION
+        private const val SWAP_SOUND_MIN_INTERVAL_SECONDS = 0.05f
+        private const val NANOS_PER_SECOND = 1_000_000_000L
         private const val NEXT_CASCADE_DELAY = 1f
         const val HOLD_LIMIT_SECONDS = 20f
         private const val GAUGE_THICKNESS = 0.05f
@@ -55,6 +57,7 @@ class Board(
     private var holdingRow = -1
     private var holdingCol = -1
     private var swappedDuringHold = false
+    private var lastSwapSoundTimeNanos = 0L
     private val holdGauge = Gauge(
         thickness = GAUGE_THICKNESS,
         fgColor = Color.rgb(255, 96, 64),
@@ -87,6 +90,7 @@ class Board(
     )
 
     init {
+        gctx.res.sound.preloadEffect(R.raw.swap)
         fillInitialDrops()
     }
 
@@ -337,6 +341,21 @@ class Board(
         drop.y = pt.y.coerceIn(minY, maxY)
     }
 
+    private fun playSwapEffectIfAllowed() {
+        val now = System.nanoTime()
+        val minIntervalNanos = (SWAP_SOUND_MIN_INTERVAL_SECONDS * NANOS_PER_SECOND).toLong()
+
+        if (
+            lastSwapSoundTimeNanos != 0L &&
+            now - lastSwapSoundTimeNanos < minIntervalNanos
+        ) {
+            return
+        }
+
+        lastSwapSoundTimeNanos = now
+        gctx.res.sound.playEffect(R.raw.swap)
+    }
+
     private fun trySwapHoldingWith(targetRow: Int, targetCol: Int) {
         val held = holdingDrop ?: return
 
@@ -360,6 +379,8 @@ class Board(
         holdingRow = targetRow
         holdingCol = targetCol
         swappedDuringHold = true
+
+        playSwapEffectIfAllowed()
 
         if (!timerStarted) {
             timerStarted = true
