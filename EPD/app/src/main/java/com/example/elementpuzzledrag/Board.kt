@@ -42,7 +42,7 @@ class Board(
         private const val MATCH_GROUP_REMOVE_INTERVAL = 0.5f
         private const val BEFORE_GRAVITY_DELAY = 0.8f
 
-        private const val USE_DEBUG_VISIBLE_BOARD = true
+        private const val USE_DEBUG_VISIBLE_BOARD = false
         private val DEBUG_VISIBLE_BOARD_TOP_TO_BOTTOM = listOf(
             "RRBRBB",
             "BBGBGG",
