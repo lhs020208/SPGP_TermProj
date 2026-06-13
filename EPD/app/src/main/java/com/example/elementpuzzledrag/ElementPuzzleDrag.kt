@@ -10,9 +10,9 @@ class ElementPuzzleDrag : BaseGameActivity() {
         const val EXTRA_INITIAL_STAGE_INDEX = "initial_stage_index"
     }
 
-    override val drawsDebugGrid: Boolean = true
-    override val drawsDebugInfo: Boolean = true
-    override val drawsFpsGraph: Boolean = true
+    override val drawsDebugGrid: Boolean = false
+    override val drawsDebugInfo: Boolean = false
+    override val drawsFpsGraph: Boolean = false
 
     override fun createRootScene(gctx: GameContext): Scene {
         gctx.metrics.setSize(900f, 1600f)
