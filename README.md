@@ -2,7 +2,7 @@
 
 ## 제출 링크
 
-* 3차 발표 영상 링크: 촬영 후 첨부 예정
+* 3차 발표 영상 링크: https://youtu.be/O8p0PftLhJY
 * 2차 발표 영상 링크: https://youtu.be/T9zWWhJ9XoI
 * 1차 발표 영상 링크: https://youtu.be/95fEys_hyso
 * Git repository link: https://github.com/lhs020208/SPGP_TermProj
